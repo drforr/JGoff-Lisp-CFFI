@@ -4,12 +4,16 @@ use Moose;
 use Moose::Util::TypeConstraints;
 use Function::Parameters qw( :strict );
 use Scalar::Util qw( looks_like_number );
+use Readonly;
 
-subtype 'ForeignAddress' as 'Object';
-subtype 'ForeignType' as 'Object';
-subtype 'ForeignEnum' as 'Object';
-subtype 'ForeignStruct' as 'Object';
-subtype 'ForeignPointer' as 'Object';
+use JGoff::Lisp::CFFI::ForeignAddress;
+use JGoff::Lisp::CFFI::ForeignBitfield;
+
+### subtype 'ForeignAddress' as 'Object';
+### subtype 'ForeignType' as 'Object';
+### subtype 'ForeignEnum' as 'Object';
+### subtype 'ForeignStruct' as 'Object';
+### subtype 'ForeignPointer' as 'Object';
 
 enum 'ForeignTypeName' => [
   ':char',
@@ -18,7 +22,7 @@ enum 'ForeignTypeName' => [
   ':long',
   ':long-long',
   ':float',
-  ':double'
+  ':double',
   ':long-double', # Only on a few Lisps
 
   ':unsigned-char',
@@ -43,17 +47,17 @@ enum 'ForeignTypeName' => [
   ':pointer', # Type is optional
   ':boolean', # base-type is optional
 ];
-
-enum 'ForeignCompoundTypeName' => [
-  ':pointer',
-  ':boolean',
-  ':wrapper',
-
-#  ':pointer &optional type', # Pointer to an object of any type
-#  ':boolean &optional (base-type :int)', # Canonicalizes to base-type
-#                                         # which is :int by default
-#  ':wrapper base-type &key to-c from-c'
-];
+### 
+### enum 'ForeignCompoundTypeName' => [
+###   ':pointer',
+###   ':boolean',
+###   ':wrapper',
+### 
+### #  ':pointer &optional type', # Pointer to an object of any type
+### #  ':boolean &optional (base-type :int)', # Canonicalizes to base-type
+### #                                         # which is :int by default
+### #  ':wrapper base-type &key to-c from-c'
+### ];
 
 =head1 NAME
 
@@ -138,13 +142,16 @@ See Also
   free_converted_object
   translate_from_foreign
 
+  my $self = shift;
 =cut
 
 method convert_from_foreign(
-  ForeignAddress $foreign_value, ForeignType $type ) {
-  my $value;
+  JGoff::Lisp::CFFI::ForeignAddress $foreign_value,
+  Str $type ) {
+  my ( $object );
+  $object = $foreign_value->object;
 
-  return $value;
+  return ( $object );
 }
 # }}}
 
@@ -201,13 +208,16 @@ See Also
 
 =cut
 
-method convert_to_foreign( $value, ForeignType $type ) {
-  # XXX assertion for $value
+# Switch return values so 'my $x = ... ' works transparently.
+#
+method convert_to_foreign( $object, Str $type ) {
   my ( $foreign_value, $alloc_params );
-  $foreign_value = ForeignAddress->new; # XXX
+  $foreign_value =
+    JGoff::Lisp::CFFI::ForeignAddress->new( object => $object );
+$alloc_params = 2;
 
-  _assert_foreign_address( $foreign_value );
-  return ( $foreign_value, $alloc_params );
+#  _assert_foreign_address( $foreign_value );
+  return ( $alloc_params, $foreign_value );
 }
 # }}}
 
@@ -266,7 +276,7 @@ Examples
 
   # XXX case sensitivity here?
   is_deeply(
-    [ foreign_bitfield_symbols( $open_flags, 0b1101 ) ],
+    [ $cffi->foreign_bitfield_symbols( $open_flags, 0b1101 ) ],
     [ ':rdonly', ':wronly', ':nonblock', ':append' ] );
    
   CFFI> (foreign-bitfield-value 'open-flags '(:rdwr :creat))
@@ -304,8 +314,35 @@ See Also
 
 =cut
 
-sub defbitfield {
-  my $self = shift;
+method defbitfield( @keys ) {
+  my ( $foreign_bitfield );
+  my $bits = {};
+  my %rest;
+  my $current_bitmask = 1;
+  for my $key ( @keys ) {
+    if ( ref( $key ) ) {
+      if ( $key->[ 1 ] ) {
+        $current_bitmask = $key->[ 1 ];
+        $bits->{ $current_bitmask } = $key->[ 0 ];
+      }
+      else {
+        $rest{all_bits} = $key->[ 0 ];
+        next;
+      }
+    }
+    else {
+      $bits->{ $current_bitmask } = $key;
+    }
+    $current_bitmask *= 2;
+  }
+
+  $foreign_bitfield =
+    JGoff::Lisp::CFFI::ForeignBitfield->new(
+      bitfield => $bits,
+      %rest
+    );
+
+  return ( $foreign_bitfield );
 }
 # }}}
 
@@ -688,10 +725,20 @@ See Also
 
 =cut
 
-method foreign_bitfield_symbols( ForeignType $type, $value ) {
-  my ( $symbols );
+method foreign_bitfield_symbols(
+  JGoff::Lisp::CFFI::ForeignBitfield $type, $value ) {
+  my ( @symbols ) = ( );
+  my @foo = sort { $a <=> $b }
+            keys %{ $type->bitfield };
+  if ( $type->all_bits ) {
+    push @symbols, uc( $type->all_bits );
+  }
+  for my $mask ( @foo ) {
+    push @symbols, uc( $type->bitfield->{ $mask } ) if
+      ( $value & $mask ) > 0;
+  }
 
-  return ( $symbols );
+  return ( @symbols );
 }
 # }}}
 
@@ -2318,15 +2365,14 @@ See Also
 
 =cut
 
-sub lisp_string_to_foreign {
-  my $self = shift;
-  my ( $string, $buffer, $bufsize, @key ) = @_;
+method lisp_string_to_foreign( $string, $buffer, $bufsize, @key ) {
   my ( $buffer );
 
   return ( $buffer );
 }
 # }}}
 
+# {{{ with_foreign_string
 =head2 with_foreign_string: Allocates a foreign string with dynamic extent.
 
 (Strings)
@@ -2371,7 +2417,9 @@ See Also
 sub with_foreign_string {
   my $self = shift;
 }
+# }}}
 
+# {{{ with_foreign_strings
 =head2 with_foreign_strings: Plural form of with-foreign-string.
 
 (Strings)
@@ -2383,7 +2431,9 @@ sub with_foreign_string {
 sub with_foreign_strings {
   my $self = shift;
 }
+# }}}
 
+# {{{ with_foreign_pointer_as_string
 =head2 with_foreign_pointer_as_string: Similar to CL's with-output-to-string. 
 
 (Strings)
@@ -2416,7 +2466,9 @@ See Also
 sub with_foreign_pointer_as_string {
   my $self = shift;
 }
+# }}}
 
+# {{{ defcvar
 =head2 defcvar: Defines a C global variable.
 
 (Variables)
@@ -2477,7 +2529,9 @@ See Also
 sub defcvar {
   my $self = shift;
 }
+# }}}
 
+# {{{ get_var_pointer
 =head2 get_var_pointer: Returns a pointer to a defined global variable. 
 
 (Variables)
@@ -2519,7 +2573,9 @@ sub get_var_pointer {
 
   return ( $pointer );
 }
+# }}}
 
+# {{{ defcfun
 =head2 defcfun: Defines a foreign function.
 
   # Note that this injects strlen() into the current package.
@@ -2640,7 +2696,9 @@ method defcfun( $lisp_name, $arg_name, $return_type, $arg_type, $convention )  {
 
   return ( $function_ref );
 }
+# }}}
 
+# {{{ foreign_funcall
 =head2 foreign_funcall: Performs a call to a foreign function.
 
 (Functions)
@@ -2714,7 +2772,9 @@ See Also
 sub foreign_funcall {
   my $self = shift;
 }
+# }}}
 
+# {{{ foreign_funcall_pointer
 =head2 foreign_funcall_pointer: Performs a call through a foreign pointer.
 
 (Functions)
@@ -2762,7 +2822,9 @@ See Also
 sub foreign_funcall_pointer {
   my $self = shift;
 }
+# }}}
 
+# {{{ translate_camelcase_name
 =head2 translate_camelcase_name: Converts a camelCase foreign name to/from a Lisp name.
 
 (Functions)
@@ -2806,14 +2868,14 @@ See Also
 
 =cut
 
-sub translate_camelcase_name {
-  my $self = shift;
-  my ( $name, @key ) = @_;
+method translate_camelcase_name ( $name, @key ) {
   my ( $return_value );
 
   return ( $return_value );
 }
+# }}}
 
+# {{{ translate_name_from_foreign
 =head2 translate_name_from_foreign: Converts a foreign name to a Lisp name.
 
 (Functions)
@@ -2862,14 +2924,14 @@ See Also
 
 =cut
 
-sub translate_name_from_foreign {
-  my $self = shift;
-  my ( $foreign_name, $package, $optional_varp ) = @_;
+method translate_name_from_foreign( $foreign_name, $package, $optional_varp ) {
   my ( $symbol );
 
   return ( $symbol );
 }
+# }}}
 
+# {{{ translate_name_to_foreign
 =head2 translate_name_to_foreign: Converts a Lisp name to a foreign name.
 
 (Functions)
@@ -2918,14 +2980,14 @@ See Also
 
 =cut
 
-sub translate_name_to_foreign {
-  my $self = shift;
-  my ( $foreign_name, $package, $optional_varp ) = @_;
+method translate_name_to_foreign( $foreign_name, $package, $optional_varp ) {
   my ( $symbol );
 
   return ( $symbol );
 }
+# }}}
 
+# {{{ translate_underscore_separated_name
 =head2 translate_underscore_separated_name: Converts an underscore_separated foreign name to/from a Lisp name. 
 
 (Functions)
@@ -2956,14 +3018,14 @@ See Also
 
 =cut
 
-sub translate_underscore_separated_name {
-  my $self = shift;
-  my ( $name ) = @_;
+method translate_underscore_separated_name( Str $name ) {
   my ( $return_value );
 
   return ( $return_value );
 }
+# }}}
 
+# {{{ close_foreign_library
 =head2 close_foreign_library: Closes a foreign library.
 
 (Libraries)
@@ -2987,16 +3049,16 @@ See Also
 
 =cut
 
-sub close_foreign_library {
-  my $self = shift;
-  my ( $library ) = @_;
+method close_foreign_library( $library ) {
   my ( $success );
 
   return ( $success );
 }
+# }}}
 
 my $darwin_framework_directories; # XXX #: Search path for Darwin frameworks.
 
+# {{{ define_foreign_library
 =head2 define_foreign_library: Explain how to load a foreign library.
 
   $definition = $cffi->define_foreign_library( ... );
@@ -3068,7 +3130,9 @@ method define_foreign_library( @feature_tuples ) {
 
   return $library;
 }
+# }}}
 
+# {{{ $foreign_library_directories
 =head2 $foreign_library_directories
 
 Syntax
@@ -3122,7 +3186,9 @@ See also
 =cut
 
 my $foreign_library_directories; # XXX # Search path for shared libraries.
+# }}}
 
+# {{{ load_foreign_library
 =head2 load_foreign_library: Load a foreign library.
 
 (Libraries)
@@ -3170,14 +3236,14 @@ See Also
 
 =cut
 
-sub load_foreign_library {
-  my $self = shift;
-  my ( $library_designator ) = @_;
+method load_foreign_library( $library_designator ) {
   my ( $library );
 
   return ( $library );
 }
+# }}}
 
+# {{{ load_foreign_library_error
 =head2 load_foreign_library_error: Signalled on failure of its namesake.
 
 (Libraries)
@@ -3198,10 +3264,11 @@ See also
 
 =cut
 
-sub load_foreign_library_error {
-  my $self = shift;
+method load_foreign_library_error() {
 }
+# }}}
 
+# {{{ use_foreign_library
 =head2 use_foreign_library: Load a foreign library when needed. 
 
 (Libraries)
@@ -3227,7 +3294,9 @@ See also
 
 method use_foreign_library( $library_descriptor ) {
 }
+# }}}
 
+# {{{ callback
 =head2 callback: Returns a pointer to a defined callback.
 
 (Callbacks)
@@ -3259,10 +3328,11 @@ See Also
 
 =cut
 
-sub callback {
-  my $self = shift;
+method callback {
 }
+# }}}
 
+# {{{ defcallback
 =head2 defcallback: Defines a Lisp callback.
 
 (Callbacks)
@@ -3330,10 +3400,11 @@ See Also
 
 =cut
 
-sub defcallback {
-  my $self = shift;
+method defcallback {
 }
+# }}}
 
+# {{{ get_callback
 =head2 get_callback: Returns a pointer to a defined callback. 
 
 (Callbacks)
@@ -3367,6 +3438,7 @@ See Also
 sub get_callback {
   my $self = shift;
 }
+# }}}
 
 =head1 AUTHOR
 
