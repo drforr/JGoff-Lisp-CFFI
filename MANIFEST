@@ -4,6 +4,8 @@ lib/JGoff/Lisp/CFFI/ForeignAddress.pm
 lib/JGoff/Lisp/CFFI/ForeignBitfield.pm
 lib/JGoff/Lisp/CFFI/ForeignCStruct.pm
 lib/JGoff/Lisp/CFFI/ForeignPointer.pm
+lib/JGoff/Lisp/CFFI/ForeignLibrary.pm
+lib/JGoff/Lisp/CFFI/ForeignLibraryDescriptor.pm
 Makefile.PL
 MANIFEST			This list of files
 README

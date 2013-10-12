@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 13;
+use Test::More tests => 16;
 BEGIN {
   use_ok( 'JGoff::Lisp::CFFI' ) || print "Bail out!\n";
 }
@@ -49,6 +49,11 @@ my $cffi = JGoff::Lisp::CFFI->new;
     $test_bitfield_symbols,
     [ 'FLAG-A', 'FLAG-C' ]
   );
+
+  is(
+    $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] ),
+    0b101
+  );
 }
 
 { my $flags = $cffi->defbitfield(
@@ -65,6 +70,11 @@ my $cffi = JGoff::Lisp::CFFI->new;
     $test_bitfield_symbols,
     [ 'FLAG-A', 'FLAG-C' ]
   );
+
+  is(
+    $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] ),
+    0b1010
+  );
 }
 
 { my $flags = $cffi->defbitfield(
@@ -80,6 +90,11 @@ my $cffi = JGoff::Lisp::CFFI->new;
   is_deeply(
     $test_bitfield_symbols,
     [ 'FLAG-A', 'FLAG-C' ]
+  );
+
+  is(
+    $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] ),
+    0b10010
   );
 }
 

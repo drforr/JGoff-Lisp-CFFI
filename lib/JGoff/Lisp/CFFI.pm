@@ -10,12 +10,8 @@ use Carp qw( croak );
 use JGoff::Lisp::CFFI::ForeignAddress;
 use JGoff::Lisp::CFFI::ForeignBitfield;
 use JGoff::Lisp::CFFI::ForeignCStruct;
-
-### subtype 'ForeignAddress' as 'Object';
-### subtype 'ForeignType' as 'Object';
-### subtype 'ForeignEnum' as 'Object';
-### subtype 'ForeignStruct' as 'Object';
-### subtype 'ForeignPointer' as 'Object';
+use JGoff::Lisp::CFFI::ForeignLibrary;
+use JGoff::Lisp::CFFI::ForeignLibraryDescriptor;
 
 enum 'ForeignTypeName' => [
   ':char',
@@ -218,7 +214,6 @@ method convert_to_foreign( $object, Str $type ) {
     JGoff::Lisp::CFFI::ForeignAddress->new( object => $object );
 $alloc_params = 2;
 
-#  _assert_foreign_address( $foreign_value );
   return ( $alloc_params, $foreign_value );
 }
 # }}}
@@ -319,7 +314,7 @@ See Also
 method defbitfield( @keys ) {
   my ( $foreign_bitfield );
   my $bits = {};
-  my %rest;
+  my $all_bits;
   my $current_bitmask = 1;
   for my $key ( @keys ) {
     if ( ref( $key ) ) {
@@ -328,7 +323,7 @@ method defbitfield( @keys ) {
         $bits->{ $current_bitmask } = $key->[ 0 ];
       }
       else {
-        $rest{all_bits} = $key->[ 0 ];
+        $all_bits = $key->[ 0 ];
         next;
       }
     }
@@ -341,7 +336,7 @@ method defbitfield( @keys ) {
   $foreign_bitfield =
     JGoff::Lisp::CFFI::ForeignBitfield->new(
       bitfield => $bits,
-      %rest
+      ( $all_bits ? ( all_bits => $all_bits ) : () )
     );
 
   return ( $foreign_bitfield );
@@ -824,9 +819,16 @@ Examples
     (flag-a 1)
     (flag-b 2)
     (flag-c 4))
+
+  $flags = $cffi->defbitfield(
+    [ 'flag-a' => 1 ],
+    [ 'flag-b' => 2 ],
+    [ 'flag-c' => 4 ] );
    
   CFFI> (foreign-bitfield-value 'flags '(flag-a flag-c))
   => 5  ; #b101
+
+  is( $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] ), 5 );
 
 See Also
   defbitfield
@@ -834,8 +836,15 @@ See Also
 
 =cut
 
-method foreign_bitfield_value( $type, $symbols ) {
+method foreign_bitfield_value(
+  JGoff::Lisp::CFFI::ForeignBitfield $type,
+  $symbols ) {
   my ( $value );
+  my %bitfield = reverse %{ $type->bitfield };
+
+  for my $symbol ( @$symbols ) {
+    $value += $bitfield{ $symbol };
+  }
 
   return ( $value );
 }
@@ -965,9 +974,7 @@ See Also
 
 =cut
 
-sub foreign_slot_names {
-  my $self = shift;
-  my ( $type ) = @_;
+method foreign_slot_names( $type ) {
   my ( $names );
 
   return ( $names );
@@ -1404,7 +1411,7 @@ See Also
 
 =cut
 
-method with_foreign_object {
+method with_foreign_object() {
   my $self = shift;
 }
 # }}}
@@ -2194,8 +2201,7 @@ See Also
 
 =cut
 
-sub with_foreign_pointer {
-  my $self = shift;
+method with_foreign_pointer() {
 }
 # }}}
 
@@ -2283,6 +2289,7 @@ See Also
 
 method foreign_string_alloc( Str $string, @key ) {
   my ( $pointer );
+  $pointer = JGoff::Lisp::CFFI::FunctionPointer->new;
 
   return ( $pointer );
 }
@@ -2406,7 +2413,8 @@ See Also
 
 =cut
 
-method lisp_string_to_foreign( $string, JGoff::Lisp::CFFI::FunctionPointer $buffer, $bufsize, @key ) {
+method lisp_string_to_foreign(
+  $string, JGoff::Lisp::CFFI::FunctionPointer $buffer, $bufsize, @key ) {
   my ( $buffer );
 
   return ( $buffer );
@@ -2455,8 +2463,7 @@ See Also
 
 =cut
 
-sub with_foreign_string {
-  my $self = shift;
+method with_foreign_string() {
 }
 # }}}
 
@@ -2469,8 +2476,7 @@ sub with_foreign_string {
 
 =cut
 
-sub with_foreign_strings {
-  my $self = shift;
+method with_foreign_strings() {
 }
 # }}}
 
@@ -2504,8 +2510,7 @@ See Also
 
 =cut
 
-sub with_foreign_pointer_as_string {
-  my $self = shift;
+method with_foreign_pointer_as_string() {
 }
 # }}}
 
@@ -2567,8 +2572,7 @@ See Also
 
 =cut
 
-sub defcvar {
-  my $self = shift;
+method defcvar() {
 }
 # }}}
 
@@ -2609,6 +2613,7 @@ See Also
 
 method get_var_pointer( $symbol ) {
   my ( $pointer );
+  $pointer = JGoff::Lisp::CFFI::FunctionPointer->new;
 
   return ( $pointer );
 }
@@ -2729,7 +2734,7 @@ See Also
 #
 # Really the distinction isn't necessary, but I'll keep it around for a while.
 #
-method defcfun( $lisp_name, $arg_name, $return_type, $arg_type, $convention )  {
+method defcfun( $lisp_name, $arg_name, $return_type, $arg_type, $convention ) {
   my ( $function_ref );
   *{$lisp_name} = sub { ... }; # XXX
 
@@ -2808,7 +2813,7 @@ See Also
 
 =cut
 
-method foreign_funcall() {
+method foreign_funcall( $function_name, $type ) {
 }
 # }}}
 
@@ -2858,7 +2863,6 @@ See Also
 =cut
 
 method foreign_funcall_pointer() {
-  my $self = shift;
 }
 # }}}
 
@@ -3058,6 +3062,8 @@ See Also
 
 method translate_underscore_separated_name( Str $name ) {
   my ( $return_value );
+  $name =~ s{ _ }{ - }gx;
+  $return_value = $name;
 
   return ( $return_value );
 }
@@ -3164,9 +3170,11 @@ See Also
 # current package, so we need the name.
 #
 method define_foreign_library( @feature_tuples ) {
-  my ( $library );
+  my ( $library_descriptor );
+  $library_descriptor = JGoff::Lisp::CFFI::LibraryDescriptor->new(
+    object => @feature_tuples );
 
-  return $library;
+  return $library_descriptor;
 }
 # }}}
 
@@ -3276,6 +3284,8 @@ See Also
 
 method load_foreign_library( $library_designator ) {
   my ( $library );
+  $library = JGoff::Lisp::CFFI::FunctionLibrary->new(
+    object => $library_designator );
 
   return ( $library );
 }
@@ -3330,7 +3340,8 @@ See also
 
 =cut
 
-method use_foreign_library( $library_descriptor ) {
+method use_foreign_library(
+  JGoff::Lisp::CFFI::ForeignLibraryDescriptor $library_descriptor ) {
 }
 # }}}
 
