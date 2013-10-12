@@ -5,9 +5,11 @@ use Moose::Util::TypeConstraints;
 use Function::Parameters qw( :strict );
 use Scalar::Util qw( looks_like_number );
 use Readonly;
+use Carp qw( croak );
 
 use JGoff::Lisp::CFFI::ForeignAddress;
 use JGoff::Lisp::CFFI::ForeignBitfield;
+use JGoff::Lisp::CFFI::ForeignCStruct;
 
 ### subtype 'ForeignAddress' as 'Object';
 ### subtype 'ForeignType' as 'Object';
@@ -395,6 +397,11 @@ Examples
     "Point structure."
     (x :int)
     (y :int))
+
+  $point = $cffi->defcstruct(
+    "Point structure.",
+    [ 'x' => ':int' ],
+    [ 'y' => ':int' ] );
    
   CFFI> (with-foreign-object (ptr 'point)
           ;; Initialize the slots
@@ -417,13 +424,33 @@ Examples
                           ; <a couple more bytes we don't care about>
     (z :char :offset 24)) ; a char at offset 24
                           ; <7 more bytes ignored (since size is 32)>
+
+  $foo = $cffi->defcstruct(
+    [ ':size' => 32 ],
+    "Some struct with 32 bytes.",
+    [ 'x' => ':int', ':offset' => 16 ],
+    [ 'y' => ':int' ],
+    [ 'z' => ':char', ':offset' => 24 ] );
    
   CFFI> (foreign-type-size 'foo)
   => 32
 
+  is( $cffi->foreign_type_size( $foo ), 32 );
+
+  (defcstruct cv-size
+    (width :int)
+    (height :int))
+
+  $cv_size = $cffi->defstruct(
+    [ 'width' => ':int' ],
+    [ 'height' => ':int' ] );
+
   ;;; Using :count to define arrays inside of a struct.
   (defcstruct video_tuner
     (name :char :count 32))
+
+  $video_tuner = $cffi->defcstruct(
+    [ 'name' => ':char', ':count' => 32 ] );
 
 See Also
   foreign_slot_pointer
@@ -432,8 +459,31 @@ See Also
 
 =cut
 
-sub defcstruct {
-  my $self = shift;
+method defcstruct( @keys ) {
+  my $documentation;
+  my $size;
+
+  if ( !ref( $keys[0] ) ) {
+    $documentation = shift @keys;
+  }
+  elsif ( $keys[0]->[0] eq ':size' ) {
+    $size = (shift @keys)[1];
+  }
+  if ( !ref( $keys[0] ) ) {
+    if ( $documentation ) {
+      croak "Two documentation strings!";
+    }
+    $documentation = shift @keys;
+  }
+
+  my ( $cstruct );
+  $cstruct = JGoff::Lisp::CFFI::ForeignCStruct->new(
+    keys => [ @keys ],
+    ( $documentation ? ( documentation => $documentation ) : () ),
+    ( $size ? ( size => $size ) : () ),
+  );
+
+  return ( $cstruct );
 }
 # }}}
 
@@ -473,8 +523,12 @@ See Also
 
 =cut
 
-sub defcunion {
-  my $self = shift;
+method defcunion( @keys ) {
+  my ( $cunion );
+  $cunion =
+    JGoff::Lisp::CFFI::ForeignCUnion->new( @keys );
+
+  return ( $cunion );
 }
 # }}}
 
@@ -517,10 +571,10 @@ See Also
 
 =cut
 
-method defctype( ForeignType $type, Str $documentation ) {
+method defctype( $type, Str $documentation ) {
   my ( $ctype );
 
-  return $ctype;
+  return ( $ctype );
 }
 # }}}
 
@@ -578,8 +632,12 @@ See Also
 
 =cut
 
-sub defcenum {
-  my $self = shift;
+method defcenum( @keys ) {
+  my ( $cenum );
+  $cenum =
+    JGoff::Lisp::CFFI::ForeignCEnum->new( @keys );
+
+  return ( $cenum );
 }
 # }}}
 
@@ -632,12 +690,10 @@ See Also
 
 =cut
 
-sub define_foreign_type {
-  my $self = shift;
-  my ( @type_tuples ) = @_;
-  my ( $type );
+method define_foreign_type( @type ) {
+  my ( $foreign_type );
 
-  return ( $type );
+  return ( $foreign_type );
 }
 # }}}
 
@@ -686,8 +742,10 @@ See Also
 
 =cut
 
-sub define_parse_method {
-  my $self = shift;
+method define_parse_method( @type ) {
+  my ( $parse_method );
+
+  return ( $parse_method );
 }
 # }}}
 
@@ -776,9 +834,7 @@ See Also
 
 =cut
 
-sub foreign_bitfield_value {
-  my $self = shift;
-  my ( $type, $symbols ) = @_;
+method foreign_bitfield_value( $type, $symbols ) {
   my ( $value );
 
   return ( $value );
@@ -822,7 +878,7 @@ See Also
 
 =cut
 
-method foreign_enum_keyword( ForeignEnum $type, Int $value, @key ) {
+method foreign_enum_keyword( $type, Int $value, @key ) {
   # XXX assertions on key values
   my ( $keyword );
 
@@ -867,7 +923,7 @@ See Also
 
 =cut
 
-method foreign_enum_value( ForeignEnum $type, Str $keyword, @key ) {
+method foreign_enum_value( $type, Str $keyword, @key ) {
   # XXX $keyword should probably *not* be a number.
   # XXX assertions on key values
   my ( $value );
@@ -956,9 +1012,7 @@ See Also
 
 =cut
 
-sub foreign_slot_offset {
-  my $self = shift;
-  my ( $type, $slot_name ) = @_;
+method foreign_slot_offset( $type, $slot_name ) {
   my ( $offset );
 
   return ( $offset );
@@ -1007,9 +1061,9 @@ See Also
 
 =cut
 
-sub foreign_slot_pointer {
-  my $self = shift;
-  my ( $ptr, $type, $slot_name ) = @_;
+method foreign_slot_pointer(
+  JGoff::Lisp::CFFI::ForeignPiointer $ptr,
+  $type, $slot_name ) {
   my ( $pointer );
 
   return ( $pointer );
@@ -1065,8 +1119,7 @@ See Also
 
 =cut
 
-sub foreign_slot_value {
-  my $self = shift;
+method foreign_slot_value( @keys ) {
 }
 # }}}
 
@@ -1108,7 +1161,7 @@ See Also
 
 =cut
 
-method foreign_type_alignment( ForeignType $type ) {
+method foreign_type_alignment( $type ) {
   my ( $alignment );
 
   return ( $alignment );
@@ -1151,7 +1204,7 @@ See Also
 
 =cut
 
-method foreign_type_size( ForeignStruct $type ) {
+method foreign_type_size( $type ) {
   my ( $size );
 
   return ( $size );
@@ -1199,7 +1252,7 @@ See Also
 =cut
 
 method free_converted_object(
-  ForeignAddress $foreign_value, ForeignType $type, $params ) {
+  JGoff::Lisp::CFFI::ForeignAddress $foreign_value, $type, $params ) {
   # XXX assertions on key params
 
   return;
@@ -1233,10 +1286,7 @@ See Also
 
 =cut
 
-sub free_translated_object {
-  my $self = shift;
-  my ( $value, $type_name, $param ) = @_;
-
+method free_translated_object( $value, $type_name, $param ) {
   return;
 }
 # }}}
@@ -1271,9 +1321,7 @@ See Also
 
 =cut
 
-sub translate_from_foreign {
-  my $self = shift;
-  my ( $foreign_value, $type_name ) = @_;
+method translate_from_foreign( $foreign_value, $type_name ) {
   my ( $lisp_value );
 
   return ( $lisp_value );
@@ -1314,9 +1362,7 @@ See Also
 
 =cut
 
-sub translate_to_foreign {
-  my $self = shift;
-  my ( $lisp_value, $type_name ) = @_;
+method translate_to_foreign( $lisp_value, $type_name ) {
   my ( $foreign_value, $alloc_param );
 
   return ( $foreign_value, $alloc_param );
@@ -1358,7 +1404,7 @@ See Also
 
 =cut
 
-sub with_foreign_object {
+method with_foreign_object {
   my $self = shift;
 }
 # }}}
@@ -1372,8 +1418,7 @@ sub with_foreign_object {
 
 =cut
 
-sub with_foreign_objects {
-  my $self = shift;
+method with_foreign_objects() {
 }
 # }}}
 
@@ -1430,8 +1475,7 @@ See Also
 
 =cut
 
-sub with_foreign_slots {
-  my $self = shift;
+method with_foreign_slots() {
 }
 # }}}
 
@@ -1463,10 +1507,7 @@ See Also
 
 =cut
 
-sub foreign_free {
-  my $self = shift;
-  my ( $ptr ) = @_;
-
+method foreign_free( JGoff::Lisp::CFFI::ForeignPointer $ptr ) {
   return undef;
 }
 # }}}
@@ -1558,8 +1599,9 @@ See Also
 
 =cut
 
-method foreign_alloc( ForeignType $type, @key ) {
+method foreign_alloc( $type, @key ) {
   my ( $pointer );
+  $pointer = JGoff::Lisp::CFFI::ForeignPointer->new;
 
   return ( $pointer );
 }
@@ -1610,6 +1652,7 @@ See Also
 
 method foreign_symbol_pointer( $foreign_name, @key ) {
   my ( $pointer );
+  $pointer = JGoff::Lisp::CFFI::ForeignPointer->new;
 
   return ( $pointer );
 }
@@ -1652,7 +1695,7 @@ See Also
 
 =cut
 
-method inc_pointer( ForeignPointer $pointer, $offset ) {
+method inc_pointer( JGoff::Lisp::CFFI::FunctionPointer $pointer, $offset ) {
   my ( $new_pointer );
   $new_pointer = $pointer + 1;
 
@@ -1704,7 +1747,7 @@ See Also
 
 =cut
 
-method incf_pointer( ForeignPointer $foreign_address ) {
+method incf_pointer( JGoff::Lisp::CFFI::FunctionPointer $foreign_address ) {
   $foreign_address++; # XXX JMG do something
 }
 # }}}
@@ -1756,9 +1799,8 @@ See Also
 
 =cut
 
-method make_pointer( ForeignAddress $address ) {
+method make_pointer( JGoff::Lisp::CFFI::ForeignAddress $address ) {
   my ( $ptr );
-  $ptr = ForeignPointer->new( $address );
 
   return ( $ptr );
 }
@@ -1798,7 +1840,7 @@ Examples
 
 =cut
 
-method mem_aptr( ForeignPointer $ptr, ForeignType $type, @key ) {
+method mem_aptr( JGoff::Lisp::CFFI::FunctionPointer $ptr, $type, @key ) {
 }
 # }}}
 
@@ -1855,7 +1897,7 @@ See Also
 
 =cut
 
-method mem_aref( ForeignPointer $ptr, ForeignType $type, @n ) {
+method mem_aref( JGoff::Lisp::CFFI::FunctionPointer $ptr, $type, @n ) {
 }
 # }}}
 
@@ -1903,7 +1945,7 @@ See Also
 
 =cut
 
-method mem_ref( ForeignPointer $ptr, ForeignType $type, @key ) {
+method mem_ref( JGoff::Lisp::CFFI::FunctionPointer $ptr, $type, @key ) {
 }
 # }}}
 
@@ -1937,7 +1979,7 @@ See Also
 
 method null_pointer( ) {
   my ( $pointer );
-  $pointer = ForeignPointer->new( 0 );
+  $pointer = JGoff::Lisp::CFFI::ForeignPointer->new;
 
   return ( $pointer );
 }
@@ -1980,7 +2022,7 @@ See Also
 
 =cut
 
-method null_pointer_p( ForeignPointer $ptr ) {
+method null_pointer_p( JGoff::Lisp::CFFI::FunctionPointer $ptr ) {
   my ( $boolean );
 
   return ( $boolean );
@@ -2024,8 +2066,7 @@ See Also
 
 =cut
 
-method pointerp( $x ) {
-  return ref( $x ) and $x->isa( 'ForeignPointer' );
+method pointerp( JGoff::Lisp::CFFI::FunctionPointer $ptr ) {
 }
 # }}}
 
@@ -2064,7 +2105,7 @@ See Also
 
 =cut
 
-method pointer_address( ForeignPointer $ptr ) {
+method pointer_address( JGoff::Lisp::CFFI::FunctionPointer $ptr ) {
   my ( $address );
   $address = $ptr->address;
 
@@ -2108,7 +2149,7 @@ See Also
 
 =cut
 
-method pointer_eq( ForeignPointer $ptr1, ForeginPointer $ptr2 ) {
+method pointer_eq( JGoff::Lisp::CFFI::FunctionPointer $ptr1, JGoff::Lisp::CFFI::FunctionPointer $ptr2 ) {
   my ( $boolean );
   $boolean = $self->pointer_to_address( $ptr1 ) ==
              $self->pointer_to_address( $ptr2 );
@@ -2240,9 +2281,8 @@ See Also
 
 =cut
 
-method foreign_string_alloc( String $string, @key ) {
+method foreign_string_alloc( Str $string, @key ) {
   my ( $pointer );
-  $pointer = ForeignPointer->new( $string );
 
   return ( $pointer );
 }
@@ -2270,7 +2310,7 @@ See Also
 
 =cut
 
-method foreign_string_free( ForeignPointer $pointer ) {
+method foreign_string_free( JGoff::Lisp::CFFI::FunctionPointer $pointer ) {
   return;
 }
 # }}}
@@ -2319,7 +2359,8 @@ See Also
 
 =cut
 
-method foreign_string_to_lisp( ForeignAddress $address, @key ) {
+method foreign_string_to_lisp(
+  JGoff::Lisp::CFFI::ForeignAddress $address, @key ) {
   my ( $string );
 
   return ( $string );
@@ -2365,7 +2406,7 @@ See Also
 
 =cut
 
-method lisp_string_to_foreign( $string, $buffer, $bufsize, @key ) {
+method lisp_string_to_foreign( $string, JGoff::Lisp::CFFI::FunctionPointer $buffer, $bufsize, @key ) {
   my ( $buffer );
 
   return ( $buffer );
@@ -2566,9 +2607,7 @@ See Also
 
 =cut
 
-sub get_var_pointer {
-  my $self = shift;
-  my ( $symbol ) = @_;
+method get_var_pointer( $symbol ) {
   my ( $pointer );
 
   return ( $pointer );
@@ -2769,8 +2808,7 @@ See Also
 
 =cut
 
-sub foreign_funcall {
-  my $self = shift;
+method foreign_funcall() {
 }
 # }}}
 
@@ -2819,7 +2857,7 @@ See Also
 
 =cut
 
-sub foreign_funcall_pointer {
+method foreign_funcall_pointer() {
   my $self = shift;
 }
 # }}}
@@ -3435,8 +3473,7 @@ See Also
 
 =cut
 
-sub get_callback {
-  my $self = shift;
+method get_callback {
 }
 # }}}
 

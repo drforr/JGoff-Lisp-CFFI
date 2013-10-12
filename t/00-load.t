@@ -101,7 +101,7 @@ my $cffi = JGoff::Lisp::CFFI->new;
 }
 
 ### ### 4.3 Loading foreign libraries
-### ### 
+###
 ### ###   (define-foreign-library libcurl
 ### ###     (:unix (:or "libcurl.so.3" "libcurl.so"))
 ### ###     (t (:default "libcurl")))
@@ -115,7 +115,7 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### $cffi->use_foreign_library( $libcurl );
 ###
 ### ### 4.4 Initializing libcurl
-### ### 
+###
 ### ###   ;;; A CURLcode is the universal error code.  curl/curl.h says
 ### ###   ;;; no return code will ever be removed, and new ones will be
 ### ###   ;;; added to the end.
@@ -161,12 +161,12 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ### 
 ### ###   (defmacro define-curl-options (name type-offsets &rest enum-args)
 ### ###     "As with CFFI:DEFCENUM, except each of ENUM-ARGS is as follows:
-### ###    
+###
 ### ###       (NAME TYPE NUMBER)
-### ###    
+###
 ### ###   Where the arguments are as they are with the CINIT macro defined
 ### ###   in curl.h, except NAME is a keyword.
-### ###    
+###
 ### ###   TYPE-OFFSETS is a plist of TYPEs to their integer offsets, as
 ### ###   defined by the CURLOPTTYPE_LONG et al constants in curl.h."
 ### ###     (flet ((enumerated-value (type offset)
@@ -176,14 +176,14 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###            ,@(loop for (name type number) in enum-args
 ### ###                 collect (list name (enumerated-value type number))))
 ### ###          ',name)))                ;for REPL users' sanity
-### ###    
+###
 ### ###   (define-curl-options curl-option
 ### ###       (long 0 objectpoint 10000 functionpoint 20000 off-t 30000)
 ### ###     (:noprogress long 43)
 ### ###     (:nosignal long 99)
 ### ###     (:errorbuffer objectpoint 10)
 ### ###     (:url objectpoint 2))
-### ### 
+###
 ### ###   (progn
 ### ###     (defcenum curl-option
 ### ###       (:noprogress 43)
@@ -191,12 +191,12 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###       (:errorbuffer 10010)
 ### ###       (:url 10002))
 ### ###     'curl-option)
-### ### 
+###
 ### ###   cffi-user> (foreign-funcall "curl_easy_setopt"
 ### ###                  :pointer *easy-handle*
 ### ###                  curl-option :nosignal :long 1 curl-code)
 ### ###   => 0
-### ###
+###
 ### ###   cffi-user> (foreign-funcall "curl_global_init" :long 0
 ### ###                               curl-code)
 ### 
@@ -204,7 +204,7 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ###   $curl_code );
 ### 
 ### ### 4.7 Option functions in Lisp
-### ### 
+###
 ### ###   ;;; We will use this type later in a more creative way.  For
 ### ###   ;;; now, just consider it a marker that this isn't just any
 ### ###   ;;; pointer.
@@ -221,18 +221,18 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###     `(foreign-funcall "curl_easy_setopt" easy-handle ,easy-handle
 ### ###                       curl-option ,enumerated-name
 ### ###                       ,value-type ,new-value curl-code))
-### ### 
+###
 ### ###   (defun curry-curl-option-setter (function-name option-keyword)
 ### ###     "Wrap the function named by FUNCTION-NAME with a version that
 ### ###   curries the second argument as OPTION-KEYWORD.
-### ###    
+###
 ### ###   This function is intended for use in DEFINE-CURL-OPTION-SETTER."
 ### ###     (setf (symbol-function function-name)
 ### ###             (let ((c-function (symbol-function function-name)))
 ### ###               (lambda (easy-handle new-value)
 ### ###                 (funcall c-function easy-handle option-keyword
 ### ###                          new-value)))))
-### ###    
+###
 ### ###   (defmacro define-curl-option-setter (name option-type
 ### ###                                        option-value foreign-type)
 ### ###     "Define (with DEFCFUN) a function NAME that calls
@@ -240,7 +240,7 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###   foreign type and value to be passed as the second argument to
 ### ###   easy_setopt, and FOREIGN-TYPE is the CFFI foreign type to be used
 ### ###   for the resultant function's third argument.
-### ###    
+###
 ### ###   This macro is intended for use in DEFINE-CURL-OPTIONS."
 ### ###     `(progn
 ### ###        (defcfun ("curl_easy_setopt" ,name) curl-code
@@ -248,12 +248,12 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###          (option ,option-type)
 ### ###          (new-value ,foreign-type))
 ### ###        (curry-curl-option-setter ',name ',option-value)))
-### ###    
+###
 ### ###   (defmacro define-curl-options (type-name type-offsets &rest enum-args)
 ### ###     "As with CFFI:DEFCENUM, except each of ENUM-ARGS is as follows:
-### ###    
+###
 ### ###       (NAME TYPE NUMBER)
-### ###    
+###
 ### ###   Also, define functions for each option named
 ### ###   set-`TYPE-NAME'-`OPTION-NAME', where OPTION-NAME is the NAME from
 ### ###   the above destructuring."
@@ -282,7 +282,7 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###                                      (functionpoint :pointer)
 ### ###                                      (off-t :long)))))
 ### ###          ',type-name)))
-### ### 
+###
 ### ###   (progn
 ### ###     (defcenum curl-option
 ### ###       (:noprogress 43)
@@ -298,27 +298,27 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###     (define-curl-option-setter set-curl-option-url
 ### ###       curl-option :url :pointer)
 ### ###     'curl-option)
-### ### 
+###
 ### ###   (progn
 ### ###     (defcfun ("curl_easy_setopt" set-curl-option-nosignal) curl-code
 ### ###       (easy-handle easy-handle)
 ### ###       (option curl-option)
 ### ###       (new-value :long))
 ### ###     (curry-curl-option-setter 'set-curl-option-nosignal ':nosignal))
-### ### 
+###
 ### ### Finally, let's try this out:
-### ### 
+###
 ### ###   cffi-user> (set-curl-option-nosignal *easy-handle* 1)
 ### ###   => 0
-### ### 
+###
 ### ### 4.8 Memory management
-### ### 
+###
 ### ###   (set-curl-option-url *easy-handle* "http://www.cliki.net/CFFI")
-### ###    
+###
 ### ###   == (with-foreign-string (url "http://www.cliki.net/CFFI")
 ### ###        (foreign-funcall "curl_easy_setopt" easy-handle *easy-handle*
 ### ###                         curl-option :url :pointer url curl-code))
-### ### 
+###
 ### ###   (let (easy-handle)
 ### ###     (unwind-protect
 ### ###       (with-foreign-string (url "http://www.cliki.net/CFFI")
@@ -327,18 +327,18 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###         #|do more with the easy-handle, like actually get the URL|#)
 ### ###       (when easy-handle
 ### ###         (curl-easy-cleanup easy-handle))))
-### ### 
+###
 ### ###   (defvar *easy-handle-cstrings* (make-hash-table)
 ### ###     "Hashtable of easy handles to lists of C strings that may be
 ### ###   safely freed after the handle is freed.")
-### ###    
+###
 ### ###   (defun make-easy-handle ()
 ### ###     "Answer a new CURL easy interface handle, to which the lifetime
 ### ###   of C strings may be tied.  See `add-curl-handle-cstring'."
 ### ###     (let ((easy-handle (curl-easy-init)))
 ### ###       (setf (gethash easy-handle *easy-handle-cstrings*) '())
 ### ###       easy-handle))
-### ###    
+###
 ### ###   (defun free-easy-handle (handle)
 ### ###     "Free CURL easy interface HANDLE and any C strings created to
 ### ###   be its options."
@@ -346,15 +346,15 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###     (mapc #'foreign-string-free
 ### ###           (gethash handle *easy-handle-cstrings*))
 ### ###     (remhash handle *easy-handle-cstrings*))
-### ###    
+###
 ### ###   (defun add-curl-handle-cstring (handle cstring)
 ### ###     "Add CSTRING to be freed when HANDLE is, answering CSTRING."
 ### ###     (car (push cstring (gethash handle *easy-handle-cstrings*))))
-### ### 
+###
 ### ###   (defun curry-curl-option-setter (function-name option-keyword)
 ### ###     "Wrap the function named by FUNCTION-NAME with a version that
 ### ###   curries the second argument as OPTION-KEYWORD.
-### ###    
+###
 ### ###   This function is intended for use in DEFINE-CURL-OPTION-SETTER."
 ### ###     (setf (symbol-function function-name)
 ### ###             (let ((c-function (symbol-function function-name)))
@@ -365,7 +365,7 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###                             easy-handle
 ### ###                             (foreign-string-alloc new-value))
 ### ###                            new-value))))))
-### ### 
+###
 ### ###   cffi-user> (curl-easy-cleanup *easy-handle*)
 ### ###   => NIL
 ### ###   cffi-user> (setf *easy-handle* (make-easy-handle))
@@ -375,21 +375,21 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###   cffi-user> (set-curl-option-url *easy-handle*
 ### ###                                   "http://www.cliki.net/CFFI")
 ### ###   => 0
-### ### 
+###
 ### ###   cffi-user> (foreign-string-to-lisp
 ### ###               (car (gethash *easy-handle* *easy-handle-cstrings*)))
 ### ###   => "http://www.cliki.net/CFFI"
-### ### 
+###
 ### ### Looks like that worked, and libcurl now knows what URL we want to retrieve.
-### ### 
+###
 ### ###   (defvar *easy-handle-errorbuffers* (make-hash-table)
 ### ###     "Hashtable of easy handles to C strings serving as error
 ### ###   writeback buffers.")
-### ###    
+###
 ### ###   ;;; An extra byte is very little to pay for peace of mind.
 ### ###   (defparameter *curl-error-size* 257
 ### ###     "Minimum char[] size used by cURL to report errors.")
-### ###    
+###
 ### ###   (defun make-easy-handle ()
 ### ###     "Answer a new CURL easy interface handle, to which the lifetime
 ### ###   of C strings may be tied.  See `add-curl-handle-cstring'."
@@ -399,7 +399,7 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###               (foreign-alloc :char :count *curl-error-size*
 ### ###                              :initial-element 0))
 ### ###       easy-handle))
-### ###    
+###
 ### ###   (defun free-easy-handle (handle)
 ### ###     "Free CURL easy interface HANDLE and any C strings created to
 ### ###   be its options."
@@ -409,17 +409,17 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###     (mapc #'foreign-string-free
 ### ###           (gethash handle *easy-handle-cstrings*))
 ### ###     (remhash handle *easy-handle-cstrings*))
-### ###    
+###
 ### ###   (defun get-easy-handle-error (handle)
 ### ###     "Answer a string containing HANDLE's current error message."
 ### ###     (foreign-string-to-lisp
 ### ###      (gethash handle *easy-handle-errorbuffers*)))
 ### ### 
 ### ### 4.9 Calling Lisp from C
-### ### 
+###
 ### ###   size_t
 ### ###   function(void *ptr, size_t size, size_t nmemb, void *stream);
-### ### 
+###
 ### ###   ;;; Alias in case size_t changes.
 ### ###   (defctype size :unsigned-int)
 ### 
@@ -438,7 +438,7 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###         ;; The WRITEFUNCTION should return something other than the
 ### ###         ;; #bytes available to signal an error.
 ### ###         (error () (if (zerop data-size) 1 0)))))
-### ### 
+###
 ### ###   (define-curl-options curl-option
 ### ###       (long 0 objectpoint 10000 functionpoint 20000 off-t 30000)
 ### ###     (:noprogress long 43)
@@ -446,13 +446,13 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###     (:errorbuffer objectpoint 10)
 ### ###     (:url objectpoint 2)
 ### ###     (:writefunction functionpoint 11)) ;new item here
-### ### 
+###
 ### ###   cffi-user> (set-curl-option-writefunction
 ### ###               *easy-handle* (callback easy-write))
 ### ###   => 0
-### ### 
+###
 ### ### 4.10 A complete FFI?
-### ### 
+###
 ### ###   (defcfun "curl_easy_perform" curl-code
 ### ###     (handle easy-handle))
 ### 
@@ -467,9 +467,9 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###                  (curl-easy-perform *easy-handle*)))
 ### ###   => "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\"
 ### ###   ....
-### ### 
+###
 ### ### 4.11 Defining new types
-### ### 
+###
 ### ###   (define-foreign-type curl-code-type ()
 ### ###     ()
 ### ###     (:actual-type :int)
@@ -487,17 +487,17 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###                               (curl-error-code c))))
 ### ###     (:documentation "Signalled when a libcurl function answers
 ### ###   a code other than CURLE_OK."))
-### ###    
+###
 ### ###   (defmethod translate-from-foreign (value (type curl-code-type))
 ### ###     "Raise a CURL-CODE-ERROR if VALUE, a curl-code, is non-zero."
 ### ###     (if (zerop value)
 ### ###         :curle-ok
 ### ###         (error 'curl-code-error :curl-code value)))
-### ### 
+###
 ### ###   cffi-user> (set-curl-option-nosignal *easy-handle* 1)
 ### ###   => :CURLE-OK
-### ### 
-### ### 
+###
+###
 ### ###   (defclass easy-handle ()
 ### ###     ((pointer :initform (curl-easy-init)
 ### ###               :documentation "Foreign pointer from curl_easy_init")
@@ -509,19 +509,19 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###                 :documentation "C strings set as options"))
 ### ###     (:documentation "I am a parameterization you may pass to
 ### ###   curl-easy-perform to perform a cURL network protocol request."))
-### ###    
+###
 ### ###   (defmethod initialize-instance :after ((self easy-handle) &key)
 ### ###     (set-curl-option-errorbuffer self (slot-value self 'error-buffer)))
-### ###    
+###
 ### ###   (defun add-curl-handle-cstring (handle cstring)
 ### ###     "Add CSTRING to be freed when HANDLE is, answering CSTRING."
 ### ###     (car (push cstring (slot-value handle 'c-strings))))
-### ###    
+###
 ### ###   (defun get-easy-handle-error (handle)
 ### ###     "Answer a string containing HANDLE's current error message."
 ### ###     (foreign-string-to-lisp
 ### ###      (slot-value handle 'error-buffer)))
-### ###    
+###
 ### ###   (defun free-easy-handle (handle)
 ### ###     "Free CURL easy interface HANDLE and any C strings created to
 ### ###   be its options."
@@ -529,7 +529,7 @@ my $cffi = JGoff::Lisp::CFFI->new;
 ### ###       (curl-easy-cleanup pointer)
 ### ###       (foreign-free error-buffer)
 ### ###       (mapc #'foreign-string-free c-strings)))
-### ###    
+###
 ### ###   (define-foreign-type easy-handle-type ()
 ### ###     ()
 ### ###     (:actual-type :pointer)
