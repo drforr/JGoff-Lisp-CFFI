@@ -5,6 +5,12 @@ use Moose::Util::TypeConstraints;
 use Function::Parameters qw( :strict );
 use Scalar::Util qw( looks_like_number );
 
+subtype 'ForeignAddress' as 'Object';
+subtype 'ForeignType' as 'Object';
+subtype 'ForeignEnum' as 'Object';
+subtype 'ForeignStruct' as 'Object';
+subtype 'ForeignPointer' as 'Object';
+
 enum 'ForeignTypeName' => [
   ':char',
   ':int', ':int8', ':int16',
@@ -69,17 +75,25 @@ Perhaps a little code snippet.
 
     use JGoff::Lisp::CFFI;
 
-    # Use library via OO
+    # load libcurl in a platform independent fashion
+    # call curl_global_init(0) from perl
 
     $cffi = JGoff::Lisp::CFFI->new;
 
-    my $libcurl = $cffi->define_foreign_library(
+    $libcurl = $cffi->define_foreign_library(
         [ ':unix' => [ ':or' => 'libcurl.so.3', 'libcurl.so' ] ],
         [ __default__ => [ ':default' => 'libcurl' ] ] ); 
     $cffi->use_foreign_library( $libcurl );
 
+    $curl_code = $cffi->defctype( ':int' );
+    $cffi->defcfun( curl_global_init => $curl_code,
+      [ flags => ':long' ] );
+
+    curl_global_init( 0 );
+
 =head1 METHODS
 
+# {{{ convert_from_foreign
 =head2 convert_from_foreign - Outside interface to backward type translator
 
 (Foreign Types)
@@ -132,7 +146,9 @@ method convert_from_foreign(
 
   return $value;
 }
+# }}}
 
+# {{{ convert_to_foreign
 =head2 convert_to_foreign - Outside interface to forward type translator
 
 (Foreign Types)
@@ -188,12 +204,14 @@ See Also
 method convert_to_foreign( $value, ForeignType $type ) {
   # XXX assertion for $value
   my ( $foreign_value, $alloc_params );
-  $foreign_value = Foreign::Address->new; # XXX
+  $foreign_value = ForeignAddress->new; # XXX
 
   _assert_foreign_address( $foreign_value );
   return ( $foreign_value, $alloc_params );
 }
+# }}}
 
+# {{{ defbitfield
 =head2 defbitfield - Defines a bitfield
 
 (Foreign Types)
@@ -289,7 +307,9 @@ See Also
 sub defbitfield {
   my $self = shift;
 }
+# }}}
 
+# {{{ defcstruct
 =head2 defcstruct - Defines a C struct type.
 
 (Foreign Types)
@@ -378,7 +398,9 @@ See Also
 sub defcstruct {
   my $self = shift;
 }
+# }}}
 
+# {{{ defcunion
 =head2 defcunion - Defines a C union type.
 
 (Foreign Types)
@@ -417,7 +439,9 @@ See Also
 sub defcunion {
   my $self = shift;
 }
+# }}}
 
+# {{{ defctype
 =head2 defctype - Defines a foreign typedef.
 
   /* typedef error_code int; */
@@ -461,7 +485,9 @@ method defctype( ForeignType $type, Str $documentation ) {
 
   return $ctype;
 }
+# }}}
 
+# {{{ defcenum
 =head2 defcenum - Defines a C enumeration.
 
 (Foreign Types)
@@ -518,7 +544,9 @@ See Also
 sub defcenum {
   my $self = shift;
 }
+# }}}
 
+# {{{ define_foreign_type
 =head2 define_foreign_type: Defines a foreign type specifier.
 
 (Foreign Types)
@@ -574,7 +602,9 @@ sub define_foreign_type {
 
   return ( $type );
 }
+# }}}
 
+# {{{ define_parse_method
 =head2 define_parse_method: Specifies how a type should be parsed.
 
 (Foreign Types)
@@ -622,7 +652,9 @@ See Also
 sub define_parse_method {
   my $self = shift;
 }
+# }}}
 
+# {{{ foreign_bitfield_symbols
 =head2 foreign_bitfield_symbols: Returns a list of symbols for a bitfield type.
 
 (Foreign Types)
@@ -661,7 +693,9 @@ method foreign_bitfield_symbols( ForeignType $type, $value ) {
 
   return ( $symbols );
 }
+# }}}
 
+# {{{ foreign_bitfield_value
 =head2 foreign_bitfield_value: Calculates a value for a bitfield type.
 
 (Foreign Types)
@@ -702,7 +736,9 @@ sub foreign_bitfield_value {
 
   return ( $value );
 }
+# }}}
 
+# {{{ foreign_enum_keyword
 =head2 foreign_enum_keyword: Finds a keyword in an enum type.
 
 (Foreign Types)
@@ -745,7 +781,9 @@ method foreign_enum_keyword( ForeignEnum $type, Int $value, @key ) {
 
   return ( $keyword );
 }
+# }}}
 
+# {{{ foreign_enum_value
 =head2 foreign_enum_value: Finds a value in an enum type.
 
 (Foreign Types)
@@ -789,7 +827,9 @@ method foreign_enum_value( ForeignEnum $type, Str $keyword, @key ) {
 
   return ( $value );
 }
+# }}}
 
+# {{{ foreign_slot_names
 =head2 foreign_slot_names: Returns a list of slot names in a foreign struct.
 
 (Foreign Types)
@@ -829,7 +869,9 @@ sub foreign_slot_names {
 
   return ( $names );
 }
+# }}}
 
+# {{{ foreign_slot_offset
 =head2 foreign_slot_offset: Returns the offset of a slot in a foreign struct.
 
 (Foreign Types)
@@ -874,7 +916,9 @@ sub foreign_slot_offset {
 
   return ( $offset );
 }
+# }}}
 
+# {{{ foreign_slot_pointer
 =head2 foreign_slot_pointer: Returns a pointer to a slot in a foreign struct.
 
 (Foreign Types)
@@ -923,7 +967,9 @@ sub foreign_slot_pointer {
 
   return ( $pointer );
 }
+# }}}
 
+# {{{ foreign_slot_value
 =head2 foreign_slot_value: Returns the value of a slot in a foreign struct.
 
 (Foreign Types)
@@ -975,7 +1021,9 @@ See Also
 sub foreign_slot_value {
   my $self = shift;
 }
+# }}}
 
+# {{{ foreign_type_alignment
 =head2 foreign_type_alignment: Returns the alignment of a foreign type.
 
 (Foreign Types)
@@ -1018,8 +1066,10 @@ method foreign_type_alignment( ForeignType $type ) {
 
   return ( $alignment );
 }
+# }}}
 
-=head2 foreign-type-size: Returns the size of a foreign type.
+# {{{ foreign_type_size
+=head2 foreign_type_size: Returns the size of a foreign type.
 
 (Foreign Types)
 
@@ -1059,7 +1109,9 @@ method foreign_type_size( ForeignStruct $type ) {
 
   return ( $size );
 }
+# }}}
 
+# {{{ free_converted_object
 =head2 free_converted_object: Outside interface to typed object deallocators.
 
 (Foreign Types)
@@ -1105,7 +1157,9 @@ method free_converted_object(
 
   return;
 }
+# }}}
 
+# {{{ free_translated_object
 =head2 free_translated_object: Defines how to free a foreign object.
 
 (Foreign Types)
@@ -1138,7 +1192,9 @@ sub free_translated_object {
 
   return;
 }
+# }}}
 
+# {{{ translate_from_foreign
 =head2 translate_from_foreign: Defines a foreign-to-Lisp object translation.
 
 (Foreign Types)
@@ -1175,7 +1231,9 @@ sub translate_from_foreign {
 
   return ( $lisp_value );
 }
+# }}}
 
+# {{{ translate_to_foreign
 =head2 translate_to_foreign: Defines a Lisp-to-foreign object translation.
 
 (Foreign Types)
@@ -1216,7 +1274,9 @@ sub translate_to_foreign {
 
   return ( $foreign_value, $alloc_param );
 }
+# }}}
 
+# {{{ with_foreign_object
 =head2 with_foreign_object: Allocates a foreign object with dynamic extent.
 
 (Foreign Types)
@@ -1254,7 +1314,9 @@ See Also
 sub with_foreign_object {
   my $self = shift;
 }
+# }}}
 
+# {{{ with_foreign_objects
 =head2 with_foreign_objects: Plural form of with-foreign-object.
 
 (Foreign Types)
@@ -1266,7 +1328,9 @@ sub with_foreign_object {
 sub with_foreign_objects {
   my $self = shift;
 }
+# }}}
 
+# {{{ with_foreign_slots
 =head2 with_foreign_slots: Accesses the slots of a foreign structure. 
 
 (Foreign Types)
@@ -1322,7 +1386,9 @@ See Also
 sub with_foreign_slots {
   my $self = shift;
 }
+# }}}
 
+# {{{ foreign_free
 =head2 foreign_free: Deallocates memory.
 
 (Pointers)
@@ -1356,7 +1422,9 @@ sub foreign_free {
 
   return undef;
 }
+# }}}
 
+# {{{ foreign_alloc
 =head2 foreign_alloc: Allocates memory.
 
 (Pointers)
@@ -1443,14 +1511,14 @@ See Also
 
 =cut
 
-freesub foreign_alloc {
-  my $self = shift;
-  my ( $type, @key ) = @_;
+method foreign_alloc( ForeignType $type, @key ) {
   my ( $pointer );
 
   return ( $pointer );
 }
+# }}}
 
+# {{{ foreign_symbol_pointer
 =head2 foreign_symbol_pointer: Returns a pointer to a foreign symbol.
 
 (Pointers)
@@ -1493,14 +1561,14 @@ See Also
 
 =cut
 
-sub foreign_symbol_pointer {
-  my $self = shift;
-  my ( $foreign_name, @key ) = @_;
+method foreign_symbol_pointer( $foreign_name, @key ) {
   my ( $pointer );
 
   return ( $pointer );
 }
+# }}}
 
+# {{{ inc_pointer
 =head2 inc_pointer: Increments the address held by a pointer.
 
 (Pointers)
@@ -1537,14 +1605,15 @@ See Also
 
 =cut
 
-sub inc_pointer {
-  my $self = shift;
-  my ( $pointer, $offset ) = @_;
+method inc_pointer( ForeignPointer $pointer, $offset ) {
   my ( $new_pointer );
+  $new_pointer = $pointer + 1;
 
   return ( $new_pointer );
 }
+# }}}
 
+# {{{ incf_pointer
 =head2 incf_pointer: Increments the pointer address in a place.
 
 (Pointers)
@@ -1588,10 +1657,12 @@ See Also
 
 =cut
 
-sub incf_pointer {
-  my $self = shift;
+method incf_pointer( ForeignPointer $foreign_address ) {
+  $foreign_address++; # XXX JMG do something
 }
+# }}}
 
+# {{{ make_pointer
 =head2 make_pointer: Returns a pointer to a given address.
 
 (Pointers)
@@ -1638,14 +1709,15 @@ See Also
 
 =cut
 
-sub make_pointer {
-  my $self = shift;
-  my ( $address ) = @_;
+method make_pointer( ForeignAddress $address ) {
   my ( $ptr );
+  $ptr = ForeignPointer->new( $address );
 
   return ( $ptr );
 }
+# }}}
 
+# {{{ mem_aptr
 =head2 mem_aptr: The pointer to an element of an array.
 
 (Pointers)
@@ -1679,10 +1751,11 @@ Examples
 
 =cut
 
-sub mem_aptr {
-  my $self = shift;
+method mem_aptr( ForeignPointer $ptr, ForeignType $type, @key ) {
 }
+# }}}
 
+# {{{ mem_aref
 =head2 mem_aref: Accesses the value of an index in an array.
 
 (Pointers)
@@ -1735,10 +1808,11 @@ See Also
 
 =cut
 
-sub mem_aref {
-  my $self = shift;
+method mem_aref( ForeignPointer $ptr, ForeignType $type, @n ) {
 }
+# }}}
 
+# {{{ mem_ref
 =head2 mem_ref: Dereferences a pointer.
 
 (Pointers)
@@ -1782,10 +1856,11 @@ See Also
 
 =cut
 
-sub mem_ref {
-  my $self = shift;
+method mem_ref( ForeignPointer $ptr, ForeignType $type, @key ) {
 }
+# }}}
 
+# {{{ null_pointer
 =head2 null_pointer: Returns a NULL pointer.
 
 (Pointers)
@@ -1813,13 +1888,15 @@ See Also
 
 =cut
 
-sub null_pointer {
-  my $self = shift;
+method null_pointer( ) {
   my ( $pointer );
+  $pointer = ForeignPointer->new( 0 );
 
   return ( $pointer );
 }
+# }}}
 
+# {{{ null_pointer_p
 =head2 null_pointer_p: Tests a pointer for NULL value.
 
 (Pointers)
@@ -1856,14 +1933,14 @@ See Also
 
 =cut
 
-sub null_pointer_p {
-  my $self = shift;
-  my ( $ptr ) = @_;
+method null_pointer_p( ForeignPointer $ptr ) {
   my ( $boolean );
 
   return ( $boolean );
 }
+# }}}
 
+# {{{ pointerp
 =head2 pointerp: Tests whether an object is a pointer or not.
 
 (Pointers)
@@ -1900,10 +1977,12 @@ See Also
 
 =cut
 
-sub pointerp {
-  my $self = shift;
+method pointerp( $x ) {
+  return ref( $x ) and $x->isa( 'ForeignPointer' );
 }
+# }}}
 
+# {{{ pointer_address
 =head2 pointer_address: Returns the address pointed to by a pointer.
 
 (Pointers)
@@ -1938,14 +2017,15 @@ See Also
 
 =cut
 
-sub pointer_address {
-  my $self = shift;
-  my ( $ptr ) = @_;
+method pointer_address( ForeignPointer $ptr ) {
   my ( $address );
+  $address = $ptr->address;
 
   return ( $address );
 }
+# }}}
 
+# {{{ pointer_eq
 =head2 pointer_eq: Tests if two pointers point to the same address.
 
 (Pointers)
@@ -1981,14 +2061,16 @@ See Also
 
 =cut
 
-sub pointer_eq {
-  my $self = shift;
-  my ( $ptr1, $ptr2 ) = @_;
+method pointer_eq( ForeignPointer $ptr1, ForeginPointer $ptr2 ) {
   my ( $boolean );
+  $boolean = $self->pointer_to_address( $ptr1 ) ==
+             $self->pointer_to_address( $ptr2 );
 
   return ( $boolean );
 }
+# }}}
 
+# {{{ with_foreign_pointer
 =head2 with_foreign_pointer: Allocates memory with dynamic extent. 
 
 (Pointers)
@@ -2027,8 +2109,10 @@ See Also
 sub with_foreign_pointer {
   my $self = shift;
 }
+# }}}
 
-=head2 default_foreign_encoding
+# {{{ default_foreign_encoding
+=head2 $default_foreign_encoding: Default encoding for the string types.
 
 Syntax
   Special Variable: *default-foreign-encoding*
@@ -2067,7 +2151,9 @@ See also
 =cut
 
 my $default_foreign_encoding = ''; # XXX # Default encoding for the string types.
+# }}}
 
+# {{{ foreign_string_alloc
 =head2 foreign_string_alloc: Converts a Lisp string to a foreign string.
 
 (Strings)
@@ -2107,14 +2193,15 @@ See Also
 
 =cut
 
-sub foreign_string_alloc {
-  my $self = shift;
-  my ( $string, @key ) = @_;
+method foreign_string_alloc( String $string, @key ) {
   my ( $pointer );
+  $pointer = ForeignPointer->new( $string );
 
   return ( $pointer );
 }
+# }}}
 
+# {{{ foreign_string_free
 =head2 foreign_string_free: Deallocates memory used by a foreign string.
 
 (Strings)
@@ -2136,13 +2223,12 @@ See Also
 
 =cut
 
-sub foreign_string_free {
-  my $self = shift;
-  my ( $pointer ) = @_;
-
+method foreign_string_free( ForeignPointer $pointer ) {
   return;
 }
+# }}}
 
+# {{{ foreign_string_to_lisp
 =head2 foreign_string_to_lisp: Converts a foreign string to a Lisp string.
 
 (Strings)
@@ -2186,14 +2272,14 @@ See Also
 
 =cut
 
-sub foreign_string_to_lisp {
-  my $self = shift;
-  my ( $ptr, @key ) = @_;
+method foreign_string_to_lisp( ForeignAddress $address, @key ) {
   my ( $string );
 
   return ( $string );
 }
+# }}}
 
+# {{{ lisp_string_to_foreign
 =head2 lisp_string_to_foreign: Copies a Lisp string into a foreign string.
 
 (Strings)
@@ -2239,6 +2325,7 @@ sub lisp_string_to_foreign {
 
   return ( $buffer );
 }
+# }}}
 
 =head2 with_foreign_string: Allocates a foreign string with dynamic extent.
 
