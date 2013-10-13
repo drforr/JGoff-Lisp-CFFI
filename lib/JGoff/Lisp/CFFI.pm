@@ -658,27 +658,27 @@ See Also
 
 =cut
 
-method defcenum( @keys ) {
+method defcenum( @enum_list ) {
   my ( $cenum );
 
-  my $enum = {};
+  my $collected_enums = {};
   my $current_index = 0;
-  for my $key ( @keys ) {
-    if ( ref( $key ) ) {
-      if ( $key->[ 1 ] ) {
-        $current_index = $key->[ 1 ];
-        $enum->{ $current_index } = $key->[ 0 ];
+  for my $enum ( @enum_list ) {
+    if ( ref( $enum ) ) {
+      if ( $enum->[ 1 ] ) {
+        $current_index = $enum->[ 1 ];
+        $collected_enums->{ $current_index } = $enum->[ 0 ];
       }
     }
     else {
-      $enum->{ $current_index } = $key;
+      $collected_enums->{ $current_index } = $enum;
     }
-    $current_index ++;
+    $current_index++;
   }
 
   $cenum =
     JGoff::Lisp::CFFI::ForeignEnum->new(
-      keys => $enum
+      keys => $collected_enums
     );
 
   return ( $cenum );
@@ -794,7 +794,7 @@ See Also
 
 =cut
 
-method define_parse_method( @type ) {
+method define_parse_method( @body ) {
   my ( $parse_method );
 
   return ( $parse_method );
@@ -963,7 +963,7 @@ See Also
 
 method foreign_enum_keyword(
          JGoff::Lisp::CFFI::ForeignEnum $type,
-         Int $value ) {
+         Int $value, @key ) {
   my ( $keyword );
   $keyword = uc( $type->keys->{ $value } );
 
@@ -1016,7 +1016,8 @@ See Also
 
 method foreign_enum_value(
          JGoff::Lisp::CFFI::ForeignEnum $type,
-         Str $keyword ) {
+         Str $keyword,
+         @errorp ) {
   my ( $value );
   my %reverse = reverse %{ $type->keys };
   $value = $reverse{ $keyword };
@@ -1573,7 +1574,7 @@ See Also
 
 =cut
 
-method with_foreign_object() {
+method with_foreign_object( @body ) {
   my $self = shift;
 }
 # }}}
@@ -1587,7 +1588,7 @@ method with_foreign_object() {
 
 =cut
 
-method with_foreign_objects() {
+method with_foreign_objects( @body ) {
 }
 # }}}
 
@@ -1657,7 +1658,7 @@ See Also
 
 =cut
 
-method with_foreign_slots() {
+method with_foreign_slots( @body ) {
 }
 # }}}
 
@@ -1858,7 +1859,7 @@ Examples
         $last, [ ], ':int' => $cffi->mem_ref( $llast, ':int' ), ':string' ),
     "No such file or directory" );
 
-  CFFI> (foreign-symbol-pointer "inexistent symbol")
+  CFFI> (foreign-symbol-pointer "nonexistent symbol")
   => NIL
 
 See Also
@@ -1866,7 +1867,7 @@ See Also
 
 =cut
 
-method foreign_symbol_pointer( Str $foreign_name, @key ) {
+method foreign_symbol_pointer( Str $foreign_name, @library ) {
   my ( $pointer );
   $pointer = JGoff::Lisp::CFFI::ForeignPointer->new;
 
@@ -2486,7 +2487,7 @@ See Also
 
 =cut
 
-method with_foreign_pointer() {
+method with_foreign_pointer( @body ) {
 }
 # }}}
 
@@ -2779,7 +2780,7 @@ See Also
 
 =cut
 
-method with_foreign_string() {
+method with_foreign_string( @body ) {
 }
 # }}}
 
@@ -2830,7 +2831,7 @@ See Also
 
 =cut
 
-method with_foreign_pointer_as_string() {
+method with_foreign_pointer_as_string( @body ) {
 }
 # }}}
 
@@ -3813,7 +3814,7 @@ See Also
 
 =cut
 
-method defcallback {
+method defcallback( @body ) {
 }
 # }}}
 
