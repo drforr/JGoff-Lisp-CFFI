@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 16;
+use Test::More tests => 21;
 BEGIN {
   use_ok( 'JGoff::Lisp::CFFI' ) || print "Bail out!\n";
 }
@@ -113,6 +113,19 @@ my $cffi = JGoff::Lisp::CFFI->new;
     $test_bitfield_symbols,
     [ 'FLAG-ALL', 'FLAG-A', 'FLAG-C' ]
   );
+}
+
+{ my $enum = $cffi->defcenum(
+    ':no',
+    ':yes'
+  );
+  isa_ok( $enum, 'JGoff::Lisp::CFFI::ForeignEnum' );
+
+  is( $cffi->foreign_enum_keyword( $enum, 0 ), ':NO' );
+  is( $cffi->foreign_enum_keyword( $enum, 1 ), ':YES' );
+
+  is( $cffi->foreign_enum_value( $enum, ':no' ), 0 );
+  is( $cffi->foreign_enum_value( $enum, ':yes' ), 1 );
 }
 
 ### ### 4.3 Loading foreign libraries

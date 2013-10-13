@@ -10,6 +10,7 @@ use Carp qw( croak );
 use JGoff::Lisp::CFFI::ForeignAddress;
 use JGoff::Lisp::CFFI::ForeignBitfield;
 use JGoff::Lisp::CFFI::ForeignCStruct;
+use JGoff::Lisp::CFFI::ForeignEnum;
 use JGoff::Lisp::CFFI::ForeignLibrary;
 use JGoff::Lisp::CFFI::ForeignLibraryDescriptor;
 
@@ -629,8 +630,26 @@ See Also
 
 method defcenum( @keys ) {
   my ( $cenum );
+
+  my $enum = {};
+  my $current_index = 0;
+  for my $key ( @keys ) {
+    if ( ref( $key ) ) {
+      if ( $key->[ 1 ] ) {
+        $current_index = $key->[ 1 ];
+        $enum->{ $current_index } = $key->[ 0 ];
+      }
+    }
+    else {
+      $enum->{ $current_index } = $key;
+    }
+    $current_index ++;
+  }
+
   $cenum =
-    JGoff::Lisp::CFFI::ForeignCEnum->new( @keys );
+    JGoff::Lisp::CFFI::ForeignEnum->new(
+      keys => $enum
+    );
 
   return ( $cenum );
 }
@@ -877,9 +896,16 @@ Examples
   (defcenum boolean
     :no
     :yes)
+
+  $boolean = $cffi->defcenum(
+    ':no',
+    ':yes'
+  );
    
   CFFI> (foreign-enum-keyword 'boolean 1)
   => :YES
+
+  is( $cffi->foreign_enum_keyword( $boolean, 1 ), ':YES' );
 
 See Also
   defcenum
@@ -887,9 +913,9 @@ See Also
 
 =cut
 
-method foreign_enum_keyword( $type, Int $value, @key ) {
-  # XXX assertions on key values
+method foreign_enum_keyword( $type, Int $value ) {
   my ( $keyword );
+  $keyword = uc( $type->keys->{ $value } );
 
   return ( $keyword );
 }
@@ -932,10 +958,10 @@ See Also
 
 =cut
 
-method foreign_enum_value( $type, Str $keyword, @key ) {
-  # XXX $keyword should probably *not* be a number.
-  # XXX assertions on key values
+method foreign_enum_value( $type, Str $keyword ) {
   my ( $value );
+  my %reverse = reverse %{ $type->keys };
+  $value = $reverse{ $keyword };
 
   return ( $value );
 }
