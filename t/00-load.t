@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 21;
+use Test::More tests => 27;
 BEGIN {
   use_ok( 'JGoff::Lisp::CFFI' ) || print "Bail out!\n";
 }
@@ -126,6 +126,25 @@ my $cffi = JGoff::Lisp::CFFI->new;
 
   is( $cffi->foreign_enum_value( $enum, ':no' ), 0 );
   is( $cffi->foreign_enum_value( $enum, ':yes' ), 1 );
+}
+
+{ my $rect = $cffi->defcstruct(
+    [ 'x' => ':int' ],
+    [ 'y' => ':int' ],
+    [ 'width' => ':int' ],
+    [ 'height' => ':int' ],
+  );
+  isa_ok( $rect, 'JGoff::Lisp::CFFI::ForeignCStruct' );
+
+  is_deeply(
+    [ $cffi->foreign_slot_names( $rect ) ],
+    [ 'X', 'Y', 'WIDTH', 'HEIGHT' ]
+  );
+
+  is( $cffi->foreign_slot_offset( $rect, 'x' ), 0 );
+  is( $cffi->foreign_slot_offset( $rect, 'y' ), 2 );
+  is( $cffi->foreign_slot_offset( $rect, 'width' ), 4 );
+  is( $cffi->foreign_slot_offset( $rect, 'height' ), 6 );
 }
 
 ### ### 4.3 Loading foreign libraries

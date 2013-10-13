@@ -14,6 +14,16 @@ use JGoff::Lisp::CFFI::ForeignEnum;
 use JGoff::Lisp::CFFI::ForeignLibrary;
 use JGoff::Lisp::CFFI::ForeignLibraryDescriptor;
 
+has sizes => (
+  is => 'ro',
+  isa => 'HashRef',
+  default => sub { {
+    ':char' => 1,
+    ':int' => 2,
+    ':long' => 4,
+  } }
+);
+
 enum 'ForeignTypeName' => [
   ':char',
   ':int', ':int8', ':int16',
@@ -124,17 +134,16 @@ Examples
   => #<FOREIGN-ADDRESS #x097ACDC0>
   => T
 
-  ( $foreign_address, $result ) =
+  ( $last, $result ) =
     convert_to_foreign( 'a boat', ':string' );
-  isa_ok( $foreign_address, 'Foreign::Address' );
+  isa_ok( $last, 'Foreign::Address' );
   is( $result, 1 );
 
   CFFI-USER> (convert-from-foreign * :string)
   => "a boat"
 
-  is( convert_from_foreign( $foreign_address, ':string' ),
-     'a boat'
-  );
+  is( convert_from_foreign( $last, ':string' ),
+      'a boat' );
 
 See Also
   convert_to_foreign
@@ -193,12 +202,15 @@ Examples
   => #<FOREIGN-ADDRESS #x097C5F80>
   => T
 
-  ( $value, $type ) = convert_to_foreign( 'hello, world', ':string' );
-  isa_ok( $value, 'Foreign::Address' );
+  ( $last, $type ) = convert_to_foreign( 'hello, world', ':string' );
+  isa_ok( $last, 'Foreign::Address' );
   ok( $type );
 
   CFFI-USER> (code-char (mem-aref * :char 5))
   => #\,
+
+  is( code_char( $cffi->mem_aref( $last, ':char', 5 ) ),
+      ',' );
 
 See Also
   convert_from_foreign
@@ -513,6 +525,10 @@ Examples
     (int-value :unsigned-int)
     (bytes :unsigned-char :count 4))
 
+  $uint32_bytes = $cffi->defcunion(
+    [ 'int_value' => ':unsigned-int' ],
+    [ 'bytes' => ':unsigned-int', ':count' => 4 ] );
+
 See Also
   foreign_slot_pointer
   foreign_slot_value
@@ -554,7 +570,8 @@ Examples
   (defctype my-string :string
     "My own string type.")
 
-  $my_string = $cffi->defctype( ':string', 'My own string type.' );
+  $my_string = $cffi->defctype(
+    ':string', 'My own string type.' );
    
   (defctype long-bools (:boolean :long)
     "Booleans that map to C longs.")
@@ -610,17 +627,30 @@ Examples
   (defcenum boolean
     :no
     :yes)
+
+  $boolean = $cffi->defcenum(
+    ':no',
+    ':yes' );
    
   CFFI> (foreign-enum-value 'boolean :no)
   => 0
+
+  is( $cffi->foreign_enum_value( $boolean, ':no' ), 0 );
 
   (defcenum numbers
     (:one 1)
     :two
     (:four 4))
+
+  $numbers = $cffi->defcenum(
+    [ ':one' => 1 ],
+    ':two',
+    [ ':four' => 4 ] );
    
   CFFI> (foreign-enum-keyword 'numbers 2)
   => :TWO
+
+  is( $cffi->foreign_enum_keyword( $numbers, 2 ), ':TWO' );
 
 See Also
   foreign_enum_value
@@ -692,8 +722,12 @@ Examples
   CFFI> (canonicalize-foreign-type :boolean)
   => :INT
 
+  is( $cffi->canonicalize_foreign_type( ':boolean' ), ':INT' );
+
   CFFI> (canonicalize-foreign-type '(:boolean :long))
   => :LONG
+
+  is( $cffi->canonicalize_foreign_type( [ ':boolean', ':long' ] ), ':LONG' );
 
   CFFI> (canonicalize-foreign-type '(:boolean :float))
   ;; error--> signalled by ECASE.
@@ -745,8 +779,12 @@ Examples
   CFFI> (canonicalize-foreign-type :boolean)
   => :INT
 
+  is( $cffi->canonicalize_foreign_type( ':boolean' ), ':INT' );
+
   CFFI> (canonicalize-foreign-type '(:boolean :long))
   => :LONG
+
+  is( $cffi->canonicalize_foreign_type( [ ':boolean', ':long' ] ), ':LONG' );
 
   CFFI> (canonicalize-foreign-type '(:boolean :float))
   ;; error--> signalled by ECASE.
@@ -787,9 +825,17 @@ Examples
     (flag-a 1)
     (flag-b 2)
     (flag-c 4))
+
+  $flags = $cffi->defbitfield(
+    [ 'flag-a' => 1 ],
+    [ 'flag-b' => 2 ],
+    [ 'flag-c' => 4 ] );
    
   CFFI> (foreign-bitfield-symbols 'boolean #b101)
   => (FLAG-A FLAG-C)
+
+  is_deeply( [ $cffi->foreign_bitfield_symbols( $boolean, 0b101 ) ],
+             [ 'FLAG-A', 'FLAG-C' ] );
 
 See Also
   defbitfield
@@ -847,7 +893,8 @@ Examples
   CFFI> (foreign-bitfield-value 'flags '(flag-a flag-c))
   => 5  ; #b101
 
-  is( $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] ), 5 );
+  is( $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] ),
+      0b101 );
 
 See Also
   defbitfield
@@ -948,9 +995,15 @@ Examples
   (defcenum boolean
     :no
     :yes)
+
+  $boolean = $cffi->defcenum(
+    ':no',
+    ':yes' );
    
   CFFI> (foreign-enum-value 'boolean :yes)
   => 1
+
+  is_deeply( $cffi->foreign_enum_value( $boolean, ':yes' ), 1 );
 
 See Also
   defcenum
@@ -988,9 +1041,17 @@ Examples
   (defcstruct timeval
     (tv-secs :long)
     (tv-usecs :long))
+
+  $timeval = $cffi->defcstruct(
+    [ 'tv-secs' => ':long' ],
+    [ 'tv-usecs' => ':long' ] );
    
   CFFI> (foreign-slot-names '(:struct timeval))
   => (TV-SECS TV-USECS)
+
+  is_deeply(
+    [ $cffi->foreign_slot_names( $timeval ) ],
+    [ 'TV-SECS', 'TV-USECS' ] );
 
 See Also
   defcstruct
@@ -1001,9 +1062,12 @@ See Also
 =cut
 
 method foreign_slot_names( $type ) {
-  my ( $names );
+  my ( @names );
+  for my $key ( @{ $type->keys } ) {
+    push @names, uc( $key->[ 0 ] );
+  }
 
-  return ( $names );
+  return ( @names );
 }
 # }}}
 
@@ -1030,12 +1094,20 @@ Examples
   (defcstruct timeval
     (tv-secs :long)
     (tv-usecs :long))
+
+  $timeval = $cffi->defcstruct(
+    [ 'tv-secs' => ':long' ],
+    [ 'tv-usecs' => ':long' ] );
    
   CFFI> (foreign-slot-offset '(:struct timeval) 'tv-secs)
   => 0
 
+  is( $cffi->foreign_slot_offset( $timeval, 'tv-secs' ), 0 );
+
   CFFI> (foreign-slot-offset '(:struct timeval) 'tv-usecs)
   => 4
+
+  is( $cffi->foreign_slot_offset( $timeval, 'tv-usecs' ), 4 );
 
 See Also
   defcstruct
@@ -1045,8 +1117,17 @@ See Also
 
 =cut
 
-method foreign_slot_offset( $type, $slot_name ) {
+method foreign_slot_offset(
+  JGoff::Lisp::CFFI::ForeignCStruct $type, Str $slot_name ) {
   my ( $offset );
+  my $current_offset = 0;
+  for my $key ( @{ $type->keys } ) {
+    if ( $slot_name eq $key->[ 0 ] ) {
+      $offset = $current_offset;
+      last;
+    }
+    $current_offset += $self->sizes->{ $key->[ 1 ] };
+  }
 
   return ( $offset );
 }
@@ -1080,6 +1161,11 @@ Examples
     "Pointer structure."
     (x :int)
     (y :int))
+
+  $point = $cffi->defcstruct(
+    "Pointer structure.",
+    [ 'x' => ':int' ],
+    [ 'y' => ':int' ] );
    
   CFFI> (with-foreign-object (ptr '(:struct point))
           (foreign-slot-pointer ptr '(:struct point) 'x))
@@ -1095,7 +1181,7 @@ See Also
 =cut
 
 method foreign_slot_pointer(
-  JGoff::Lisp::CFFI::ForeignPiointer $ptr,
+  JGoff::Lisp::CFFI::ForeignPointer $ptr,
   $type, $slot_name ) {
   my ( $pointer );
 
@@ -1133,6 +1219,11 @@ Examples
     "Pointer structure."
     (x :int)
     (y :int))
+
+  $point = $cffi->defcstruct(
+    "Pointer structure.",
+    [ 'x' => ':int' ],
+    [ 'y' => ':int' ] );
    
   CFFI> (with-foreign-object (ptr '(:struct point))
           ;; Initialize the slots
@@ -1152,7 +1243,10 @@ See Also
 
 =cut
 
-method foreign_slot_value( @keys ) {
+method foreign_slot_value(
+  $ptr,
+  JGoff::Lisp::CFFI::ForeignCStruct $type,
+  Str $slot_name ) {
 }
 # }}}
 
@@ -1177,17 +1271,28 @@ Examples
   CFFI> (foreign-type-alignment :char)
   => 1
 
+  is( $cffi->foreign_type_alignment( ':char' ), 1 );
+
   CFFI> (foreign-type-alignment :short)
   => 2
+
+  is( $cffi->foreign_type_alignment( ':short' ), 2 );
 
   CFFI> (foreign-type-alignment :int)
   => 4
 
+  is( $cffi->foreign_type_alignment( ':int' ), 4 );
+
   (defcstruct foo
     (a :char))
+
+  $foo = $cffi->defcstruct(
+    [ 'a' => ':char' ] );
    
   CFFI> (foreign-type-alignment '(:struct foo))
   => 1
+
+  is( $cffi->foreign_type_alignment( $foo ), 1 );
 
 See Also
   foreign_type_size
@@ -1222,15 +1327,25 @@ Examples
   (defcstruct foo
     (a :double)
     (c :char))
+
+  $foo = $cffi->defcstruct(
+    [ 'a' => ':double' ],
+    [ 'c' => ':char' ] );
    
   CFFI> (foreign-type-size :double)
   => 8
 
+  is( $cffi->foreign_type_size( ':double' ), 8 );
+
   CFFI> (foreign-type-size :char)
   => 1
 
+  is( $cffi->foreign_type_size( ':char' ), 1 );
+
   CFFI> (foreign-type-size '(:struct foo))
   => 16
+
+  is( $cffi->foreign_type_size( $foo ), 16 );
 
 See Also
   foreign_type_alignment
@@ -1274,8 +1389,15 @@ Examples
   => #<FOREIGN-ADDRESS #x097ACDC0>
   => T
 
+  ( $last, $result ) =
+    convert_to_foreign( 'a boat', ':string' );
+  isa_ok( $last, 'Foreign::Address' );
+  is( $result, 1 );
+
   CFFI-USER> (free-converted-object * :string t)
   => NIL
+
+  nok( $cffi->free_converted_object( $last, ':string', 1 ) );
 
 See Also
   convert_from_foreign
@@ -1489,6 +1611,19 @@ Examples
     (isdst  :boolean)
     (zone   :string)
     (gmtoff :long))
+
+  $tm = $cffi->defcstruct(
+    [ 'sec' => ':int' ],
+    [ 'min' => ':int' ],
+    [ 'hour' => ':int' ],
+    [ 'mday' => ':int' ],
+    [ 'mon' => ':int' ],
+    [ 'year' => ':int' ],
+    [ 'wday' => ':int' ],
+    [ 'yday' => ':int' ],
+    [ 'isdst' => ':boolean' ],
+    [ 'zone' => ':string' ],
+    [ 'gmtoff' => ':long' ] );
    
   CFFI> (with-foreign-object (time :int)
           (setf (mem-ref time :int)
@@ -1531,8 +1666,12 @@ Examples
   CFFI> (foreign-alloc :int)
   => #<A Mac Pointer #x1022E0>
 
+  $last = $cffi->foreign_alloc( ':int' );
+
   CFFI> (foreign-free *)
   => NIL
+
+  $cffi->foreign_free( $last );
 
 See Also
   foreign_alloc
@@ -1583,24 +1722,38 @@ Description
 Examples
   CFFI> (foreign-alloc :char)
   => #<A Mac Pointer #x102D80>     ; A pointer to 1 byte of memory.
+
+  $cffi->foreign_alloc( ':char' );
    
   CFFI> (foreign-alloc :char :count 20)
   => #<A Mac Pointer #x1024A0>     ; A pointer to 20 bytes of memory.
+
+  $cffi->foreign_alloc( ':char', ':count' => 20 );
    
   CFFI> (foreign-alloc :int :initial-element 12)
   => #<A Mac Pointer #x1028B0>
 
+  $last = $cffi->foreign_alloc( ':int', ':initial-element' => 12 );
+
   CFFI> (mem-ref * :int)
   => 12
+
+  is( $cffi->mem_ref( $last, ':int' ), 12 );
    
   CFFI> (foreign-alloc :int :initial-contents '(1 2 3))
   => #<A Mac Pointer #x102950>
+
+  $last = $cffi->foreign_alloc( ':int', ':initial-contents' => [ 1, 2, 3 ] );
+
   CFFI> (loop for i from 0 below 3
               collect (mem-aref * :int i))
   => (1 2 3)
    
   CFFI> (foreign-alloc :int :initial-contents #(1 2 3))
   => #<A Mac Pointer #x102960>
+
+  $last = $cffi->foreign_alloc( ':int', ':initial-contents' => [ 1, 2, 3 ] );
+
   CFFI> (loop for i from 0 below 3
               collect (mem-aref * :int i))
   => (1 2 3)
@@ -1610,15 +1763,23 @@ Examples
   CFFI> (foreign-alloc :string :initial-element "foo")
   => #<A Mac Pointer #x102C40>
 
+  $pointer = $cffi->foreign_alloc( ':string', ':initial-element' => "foo" );
+
   ;;; Allocate a null-terminated array of strings.
   ;;; (Note: FOREIGN-STRING-TO-LISP returns NIL when passed a null pointer)
   CFFI> (foreign-alloc :string
                        :initial-contents '("foo" "bar" "baz")
                        :null-terminated-p t)
   => #<A Mac Pointer #x102D20>
+
+  $last = $cffi->foreign_alloc(
+    ':string', ':initial-contents' => [ "foo", "bar", "baz" ],
+    ':null-terminated-p' => 1 );
+
   CFFI> (loop for i from 0 below 4
               collect (mem-aref * :string i))
   => ("foo" "bar" "baz" NIL)
+
   CFFI> (progn
           (dotimes (i 3)
             (foreign-free (mem-aref ** :pointer i)))
@@ -1669,12 +1830,20 @@ Examples
   CFFI> (foreign-symbol-pointer "errno")
   => #<A Mac Pointer #xA0008130>
 
+  $llast = $cffi->foreign_symbol_pointer( 'errno' );
+
   CFFI> (foreign-symbol-pointer "strerror")
   => #<A Mac Pointer #x9002D0F8>
 
+  $last = $cffi->foreign_symbol_pointer( "strerror" );
+
   CFFI> (foreign-funcall-pointer * () :int (mem-ref ** :int) :string)
   => "No such file or directory"
-   
+
+  is( $cffi->foreign_funcall_pointer(
+        $last, [ ], ':int' => $cffi->mem_ref( $llast, ':int' ), ':string' ),
+    "No such file or directory" );
+
   CFFI> (foreign-symbol-pointer "inexistent symbol")
   => NIL
 
@@ -1713,11 +1882,17 @@ Examples
   CFFI> (foreign-string-alloc "Common Lisp")
   => #<A Mac Pointer #x102EA0>
 
+  $last = $cffi->foreign_string_alloc( "Common Lisp" );
+
   CFFI> (inc-pointer * 7)
   => #<A Mac Pointer #x102EA7>
 
+  $last = $cffi->inc_pointer( $last, 7 );
+
   CFFI> (foreign-string-to-lisp *)
   => "Lisp"
+
+  is( $cffi->foreign_string_to_lisp( $last ), "Lisp" );
 
 See Also
   incf_pointer
@@ -1759,17 +1934,27 @@ Examples
   CFFI> (defparameter *two-words* (foreign-string-alloc "Common Lisp"))
   => *TWO-WORDS*
 
+  $two_words = $cffi->foreign_string_alloc( "Common Lisp" );
+
   CFFI> (defparameter *one-word* *two-words*)
   => *ONE-WORD*
+
+  $one_word = $two_words;
 
   CFFI> (incf-pointer *one-word* 7)
   => #.(SB-SYS:INT-SAP #X00600457)
 
+  $cffi->incf_pointer( $one_word, 7 );
+
   CFFI> (foreign-string-to-lisp *one-word*)
   => "Lisp"
 
+  is( $cffi->foreign_string_to_lisp( $one_word ), "Lisp" );
+
   CFFI> (foreign-string-to-lisp *two-words*)
   => "Common Lisp"
+
+  is( $cffi->foreign_string_to_lisp( $two_words ), "Common Lisp" );
 
 See Also
   inc_pointer
@@ -1806,17 +1991,27 @@ Examples
   CFFI> (make-pointer 42)
   => #<FOREIGN-ADDRESS #x0000002A>
 
+  $last = $cffi->make_pointer( 42 );
+
   CFFI> (pointerp *)
   => T
+
+  is( $cffi->pointerp( $last ) );
 
   CFFI> (pointer-address **)
   => 42
 
+  is( $cffi->pointer_address( $last ), 42 );
+
   CFFI> (inc-pointer *** -42)
   => #<FOREIGN-ADDRESS #x00000000>
 
+  $last = $cffi->inc_pointer( $last, -42 );
+
   CFFI> (null-pointer-p *)
   => T
+
+  ok( $cffi->null_pointer_p( $last ) );
 
   CFFI> (typep ** 'foreign-pointer)
   => T
@@ -1964,14 +2159,22 @@ Examples
   CFFI> (setq ptr-to-int (foreign-alloc :int))
   => #<A Mac Pointer #x1047D0>
 
+  $ptr_to_int = $cffi->foreign_alloc( ':int' );
+
   CFFI> (mem-ref ptr-to-int :int)
   => 1054619
+
+  is( $cffi->mem_ref( $ptr_to_int, ':int' ),
+      1054619 );
 
   CFFI> (setf (mem-ref ptr-to-int :int) 1984)
   => 1984
 
   CFFI> (mem-ref ptr-to-int :int)
   => 1984
+
+  is( $cffi->mem_ref( $ptr_to_int, ':int' ),
+      1984 );
 
 See Also
   mem_aref
@@ -2001,8 +2204,12 @@ Examples
   CFFI> (null-pointer)
   => #<A Null Mac Pointer>
 
+  $last = $cffi->null_pointer();
+
   CFFI> (pointerp *)
   => T
+
+  ok( $cffi->pointerp( $last ) );
 
 See Also
   null_pointer_p
@@ -2039,15 +2246,27 @@ Examples
   CFFI> (null-pointer-p (null-pointer))
   => T
 
+  ok( $cffi->null_pointer_p( $cffi->null_pointer() ) );
+
   (defun contains-str-p (big little)
     (not (null-pointer-p
           (foreign-funcall "strstr" :string big :string little :pointer))))
+
+  fun contains_str_p( $big, $little ) {
+    !$cffi->null_pointer_p(
+       $cffi->foreign_funcall(
+          "strstr", ':string', $big, ':string', $little, ':pointer' ) );
+  }
    
   CFFI> (contains-str-p "Popcorns" "corn")
   => T
 
+  ok( contains_str_p( "Popcorns", "corn" ) );
+
   CFFI> (contains-str-p "Popcorns" "salt")
   => NIL
+
+  nok( contains_str_p( "Popcorns", "salt" ) );
 
 See Also
   null_pointer
@@ -2087,11 +2306,17 @@ Examples
   CFFI> (foreign-alloc 32)
   => #<A Mac Pointer #x102D20>
 
+  $last = $cffi->foreign_alloc( 32 );
+
   CFFI> (pointerp *)
   => T
 
+  ok( $cffi->pointerp( $last ) );
+
   CFFI> (pointerp "this is not a pointer")
   => NIL
+
+  nok( $cffi->pointerp( "this is not a pointer" ) );
 
 See Also
   make_pointer
@@ -2124,8 +2349,12 @@ Examples
   CFFI> (pointer-address (null-pointer))
   => 0
 
+  is( $cffi->pointer_address( $cffi->null_pointer() ), 0 );
+
   CFFI> (pointer-address (make-pointer 123))
   => 123
+
+  is( $cffi->pointer_address( $cffi->make_pointer( 123 ) ), 123 );
 
 See Also
   make_pointer
@@ -2252,12 +2481,27 @@ Examples
   CFFI> *default-foreign-encoding*
   => :utf-8
 
+  is( $default_foreign_encoding, ':utf-8' );
+
   CFFI> (foreign-funcall "strdup" (:string :encoding :utf-16) "foo" :string)
   => "f"
+
+  $cffi->foreign_funcall(
+    "strdup",
+    [ ':string', ':encoding', ':utf-16' ],
+    "foo",
+    ':string' );
 
   CFFI> (let ((*default-foreign-encoding* :utf-16))
           (foreign-funcall "strdup" (:string :encoding :utf-16) "foo" :string))
   => "foo"
+
+  is( do { local $default_foreign_encoding = ':utf-16';
+           $cffi->foreign_funcall(
+             "strdup",
+             [ ':string', ':encoding', ':utf-16' ],
+             "foo",
+             ':string' ) }, "foo" );
 
 See also
 
@@ -2304,8 +2548,13 @@ Examples
   CFFI> (defparameter *str* (foreign-string-alloc "Hello, foreign world!"))
   => #<FOREIGN-ADDRESS #x00400560>
 
+  $str = $cffi->foreign_string_alloc( "Hello, foreign world!" );
+  isa_ok( $str, 'JGoff::Lisp::CFFI::ForeignAddress' );
+
   CFFI> (foreign-funcall "strlen" :pointer *str* :int)
   => 21
+
+  is( $cffi->foreign_funcall( "strlen", ':pointer', $str, ':int' ), 21 );
 
 See Also
   foreign_string_free
@@ -2383,8 +2632,12 @@ Examples
   CFFI> (foreign-funcall "getenv" :string "HOME" :pointer)
   => #<FOREIGN-ADDRESS #xBFFFFFD5>
 
+  $last = $cffi->foreign_funcall( "getenv", ':string', "HOME", ':pointer' );
+
   CFFI> (foreign-string-to-lisp *)
   => "/Users/luis"
+
+  is( $cffi->foreign_string_to_lisp( $last ), "/Users/jgoff" );
 
 See Also
   lisp_string_to_foreign
@@ -2476,6 +2729,10 @@ Examples
   CFFI> (with-foreign-string (foo "12345")
           (foreign-funcall "strlen" :pointer foo :int))
   => 5
+
+  is( $cffi->with_foreign_string( \$foo, "12345", sub {
+        return $cffi->foreign_funcall( "strlen", ':pointer', $foo, ':int' );
+  }, 5 );
    
   CFFI> (let ((array (coerce #(84 117 114 97 110 103 97)
                              '(array (unsigned-byte 8)))))
@@ -2530,6 +2787,10 @@ Examples
           (lisp-string-to-foreign "Hello, foreign world!" str str-size))
   => "Hello"
 
+  $cffi->with_foreign_pointer_as_string( \$str, 6, \$str_size, ':encoding', ':ascii', sub {
+    $cffi->lisp_string_to_foreign( "Hello, foreign world!", $str, $str_size );
+  } );
+
 See Also
   foreign_string_alloc
   with_foreign_string
@@ -2574,6 +2835,8 @@ Description
 Examples
   CFFI> (defcvar "errno" :int)
   => *ERRNO*
+
+  $errno = $cffi->defcvar( ':int' );
 
   CFFI> (foreign-funcall "strerror" :int *errno* :string)
   => "Inappropriate ioctl for device"
@@ -2631,6 +2894,9 @@ Examples
 
   CFFI> (mem-ref * :int)
   => 25
+
+  is( $cffi->mem_ref( $last, ':int' ),
+      25 );
 
 See Also
   defcvar
@@ -2882,6 +3148,11 @@ Examples
                                  :int -42 :int)
   => 42
 
+  is( $cffi->foreign_funcall_pointer(
+        $cffi->foreign_symbol_pointer( "abs" ),
+        [ ],
+        ':int', -42, ':int' ), 42 );
+
 See Also
   defcfun
   foreign_funcall
@@ -3126,7 +3397,35 @@ method close_foreign_library( $library ) {
 }
 # }}}
 
+# {{{ $darwin_framework_directories
+=head2 $darwin_framework_directories: Search path for Darwin frameworks.
+
+Syntax
+  Special Variable: *darwin-framework-directories*
+Value type
+
+A list, in which each element is a string, a pathname, or a simple Lisp expression.
+Initial value
+
+A list containing the following, in order: an expression corresponding to Darwin path ~/Library/Frameworks/, #P"/Library/Frameworks/", and #P"/System/Library/Frameworks/".
+Description
+
+The meaning of “simple Lisp expression” is explained in *foreign-library-directories*. In contrast to that variable, this is not a fallback search path; the default value described above is intended to be a reasonably complete search path on Darwin systems.
+Examples
+
+  CFFI> (let ((lib (load-foreign-library '(:framework "OpenGL"))))
+          (foreign-library-pathname lib))
+  => #P"/System/Library/Frameworks/OpenGL.framework/OpenGL"
+
+See also
+
+*foreign-library-directories*
+define-foreign-library
+
+=cut
+
 my $darwin_framework_directories; # XXX #: Search path for Darwin frameworks.
+# }}}
 
 # {{{ define_foreign_library
 =head2 define_foreign_library: Explain how to load a foreign library.
@@ -3530,7 +3829,6 @@ You can find documentation for this module with the perldoc command.
 
     perldoc JGoff::Lisp::CFFI
 
-
 You can also look for information at:
 
 =over 4
@@ -3553,9 +3851,7 @@ L<http://search.cpan.org/dist/JGoff-Lisp-CFFI/>
 
 =back
 
-
 =head1 ACKNOWLEDGEMENTS
-
 
 =head1 LICENSE AND COPYRIGHT
 
@@ -3566,7 +3862,6 @@ under the terms of either: the GNU General Public License as published
 by the Free Software Foundation; or the Artistic License.
 
 See http://dev.perl.org/licenses/ for more information.
-
 
 =cut
 
