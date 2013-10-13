@@ -145,7 +145,40 @@ my $cffi = JGoff::Lisp::CFFI->new;
   is( $cffi->foreign_slot_offset( $rect, 'y' ), 2 );
   is( $cffi->foreign_slot_offset( $rect, 'width' ), 4 );
   is( $cffi->foreign_slot_offset( $rect, 'height' ), 6 );
+
+# XXX $rect_object's scope
+# my $rect_object;
+# $cffi->with_foreign_object( \$rect_object, $rect, sub {
+#   $cffi->foreign_slot_value( $rect_object, $rect, 'x' ) = 42; # XXX LVALUE?
+#   $cffi->foreign_slot_value( $rect_object, $rect, 'y' ) = 41; # XXX ...
+#   $cffi->foreign_slot_value( $rect_object, $rect, 'width' ) = 40; # XXX ...
+#   $cffi->foreign_slot_value( $rect_object, $rect, 'height' ) = 39; # XXX ...
+# } );
+
+#  my ( $x, $y, $width, $height );
+#  $cffi->with_foreign_slots(
+#          [ 'x', 'y', 'width', 'height' ],
+#  [ \$x, \$y, \$width, \$height ], # XXX Aiyee.
+#          $rect_object,
+#          $rect, sub {
+#    is_deeply(
+#      [ $x, $y, $width, $height ],
+#      [ 42, 41, 40, 39 ]
+#  } );
 }
+
+#  my @collection;
+#  my $array;
+#  $cffi->with_foreign_object( [ \$array, ':int' => 10 ], sub {
+#    for my $i ( 1 .. 10 ) {
+#      $cffi->mem_aref( $array, ':int' => $i, $i );
+#    }
+#    for my $i ( 1 .. 10 ) {
+#      push @collection, $cffi->mem_aref( $array, ':int' => $i );
+#    }
+#  } );
+#  is_deeply( [ @collection ],
+#             [ 1 .. 10 ] );
 
 ### ### 4.3 Loading foreign libraries
 ###

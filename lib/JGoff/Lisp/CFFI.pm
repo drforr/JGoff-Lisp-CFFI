@@ -1256,7 +1256,8 @@ See Also
 method foreign_slot_value(
          JGoff::Lisp::CFFI::ForeignPointer $ptr,
          JGoff::Lisp::CFFI::ForeignCStruct $type,
-         Str $slot_name ) {
+         Str $slot_name,
+         $optional_value ) :lvalue { # XXX LVALUE declaration
   my ( $object );
 
   return ( $object );
@@ -1574,8 +1575,7 @@ See Also
 
 =cut
 
-method with_foreign_object( @body ) {
-  my $self = shift;
+method with_foreign_object( $binding, $body ) {
 }
 # }}}
 
@@ -1588,7 +1588,7 @@ method with_foreign_object( @body ) {
 
 =cut
 
-method with_foreign_objects( @body ) {
+method with_foreign_objects( $bindings, $body ) {
 }
 # }}}
 
@@ -1658,7 +1658,7 @@ See Also
 
 =cut
 
-method with_foreign_slots( @body ) {
+method with_foreign_slots( $binding, $body ) {
 }
 # }}}
 
@@ -2093,6 +2093,7 @@ method mem_aptr(
 }
 # }}}
 
+# setf'able location
 # {{{ mem_aref
 =head2 mem_aref: Accesses the value of an index in an array.
 
@@ -2151,6 +2152,7 @@ method mem_aref(
 }
 # }}}
 
+# setf'able location
 # {{{ mem_ref
 =head2 mem_ref: Dereferences a pointer.
 
@@ -2205,7 +2207,8 @@ See Also
 
 method mem_ref(
          JGoff::Lisp::CFFI::FunctionPointer $ptr,
-         Str $type, @key ) {
+         Str $type,
+         @optional ) { # XXX Adding ':lvalue' here breaks!
 }
 # }}}
 
