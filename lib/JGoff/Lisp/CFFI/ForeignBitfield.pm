@@ -3,8 +3,9 @@ package JGoff::Lisp::CFFI::ForeignBitfield;
 use Moose;
 use Function::Parameters qw( :strict );
 
-has bitfield => (
+has masks => (
   is => 'rw',
+  isa => 'HashRef'
 );
 has all_bits => (
   is => 'rw'

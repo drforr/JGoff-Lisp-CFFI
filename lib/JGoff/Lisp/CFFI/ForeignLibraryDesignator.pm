@@ -1,4 +1,4 @@
-package JGoff::Lisp::CFFI::ForeignLibraryDescriptor;
+package JGoff::Lisp::CFFI::ForeignLibraryDesignator;
 
 use Moose;
 use Function::Parameters qw( :strict );
@@ -9,7 +9,7 @@ has object => (
 
 =head1 NAME
 
-JGoff::Lisp::CFFI::ForeignLibrarDescriptory - Foreign Library internal class
+JGoff::Lisp::CFFI::ForeignLibrarDesignator - Foreign Library internal class
 
 =head1 VERSION
 

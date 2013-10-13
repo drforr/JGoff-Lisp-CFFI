@@ -12,7 +12,7 @@ use JGoff::Lisp::CFFI::ForeignBitfield;
 use JGoff::Lisp::CFFI::ForeignCStruct;
 use JGoff::Lisp::CFFI::ForeignEnum;
 use JGoff::Lisp::CFFI::ForeignLibrary;
-use JGoff::Lisp::CFFI::ForeignLibraryDescriptor;
+use JGoff::Lisp::CFFI::ForeignLibraryDesignator;
 
 has sizes => (
   is => 'ro',
@@ -154,8 +154,8 @@ See Also
 =cut
 
 method convert_from_foreign(
-  JGoff::Lisp::CFFI::ForeignAddress $foreign_value,
-  Str $type ) {
+         JGoff::Lisp::CFFI::ForeignAddress $foreign_value,
+         Str $type ) {
   my ( $object );
   $object = $foreign_value->object;
 
@@ -324,31 +324,31 @@ See Also
 
 =cut
 
-method defbitfield( @keys ) {
+method defbitfield( @masks ) {
   my ( $foreign_bitfield );
   my $bits = {};
   my $all_bits;
   my $current_bitmask = 1;
-  for my $key ( @keys ) {
-    if ( ref( $key ) ) {
-      if ( $key->[ 1 ] ) {
-        $current_bitmask = $key->[ 1 ];
-        $bits->{ $current_bitmask } = $key->[ 0 ];
+  for my $mask ( @masks ) {
+    if ( ref( $mask ) ) {
+      if ( $mask->[ 1 ] ) {
+        $current_bitmask = $mask->[ 1 ];
+        $bits->{ $current_bitmask } = $mask->[ 0 ];
       }
       else {
-        $all_bits = $key->[ 0 ];
+        $all_bits = $mask->[ 0 ];
         next;
       }
     }
     else {
-      $bits->{ $current_bitmask } = $key;
+      $bits->{ $current_bitmask } = $mask;
     }
     $current_bitmask *= 2;
   }
 
   $foreign_bitfield =
     JGoff::Lisp::CFFI::ForeignBitfield->new(
-      bitfield => $bits,
+      masks => $bits,
       ( $all_bits ? ( all_bits => $all_bits ) : () )
     );
 
@@ -467,26 +467,26 @@ See Also
 
 =cut
 
-method defcstruct( @keys ) {
+method defcstruct( @doc_and_slots ) {
   my $documentation;
   my $size;
 
-  if ( !ref( $keys[0] ) ) {
-    $documentation = shift @keys;
+  if ( !ref( $doc_and_slots[0] ) ) {
+    $documentation = shift @doc_and_slots;
   }
-  elsif ( $keys[0]->[0] eq ':size' ) {
-    $size = (shift @keys)[1];
+  elsif ( $doc_and_slots[0]->[0] eq ':size' ) {
+    $size = (shift @doc_and_slots)[1];
   }
-  if ( !ref( $keys[0] ) ) {
+  if ( !ref( $doc_and_slots[0] ) ) {
     if ( $documentation ) {
       croak "Two documentation strings!";
     }
-    $documentation = shift @keys;
+    $documentation = shift @doc_and_slots;
   }
 
   my ( $cstruct );
   $cstruct = JGoff::Lisp::CFFI::ForeignCStruct->new(
-    keys => [ @keys ],
+    slots => [ @doc_and_slots ],
     ( $documentation ? ( documentation => $documentation ) : () ),
     ( $size ? ( size => $size ) : () ),
   );
@@ -844,15 +844,16 @@ See Also
 =cut
 
 method foreign_bitfield_symbols(
-  JGoff::Lisp::CFFI::ForeignBitfield $type, $value ) {
+         JGoff::Lisp::CFFI::ForeignBitfield $type,
+         Int $value ) {
   my ( @symbols ) = ( );
   my @foo = sort { $a <=> $b }
-            keys %{ $type->bitfield };
+            keys %{ $type->masks };
   if ( $type->all_bits ) {
     push @symbols, uc( $type->all_bits );
   }
   for my $mask ( @foo ) {
-    push @symbols, uc( $type->bitfield->{ $mask } ) if
+    push @symbols, uc( $type->masks->{ $mask } ) if
       ( $value & $mask ) > 0;
   }
 
@@ -903,13 +904,13 @@ See Also
 =cut
 
 method foreign_bitfield_value(
-  JGoff::Lisp::CFFI::ForeignBitfield $type,
-  $symbols ) {
+         JGoff::Lisp::CFFI::ForeignBitfield $type,
+         ArrayRef $symbols ) {
   my ( $value );
-  my %bitfield = reverse %{ $type->bitfield };
+  my %mask = reverse %{ $type->masks };
 
   for my $symbol ( @$symbols ) {
-    $value += $bitfield{ $symbol };
+    $value += $mask{ $symbol };
   }
 
   return ( $value );
@@ -960,7 +961,9 @@ See Also
 
 =cut
 
-method foreign_enum_keyword( $type, Int $value ) {
+method foreign_enum_keyword(
+         JGoff::Lisp::CFFI::ForeignEnum $type,
+         Int $value ) {
   my ( $keyword );
   $keyword = uc( $type->keys->{ $value } );
 
@@ -1011,7 +1014,9 @@ See Also
 
 =cut
 
-method foreign_enum_value( $type, Str $keyword ) {
+method foreign_enum_value(
+         JGoff::Lisp::CFFI::ForeignEnum $type,
+         Str $keyword ) {
   my ( $value );
   my %reverse = reverse %{ $type->keys };
   $value = $reverse{ $keyword };
@@ -1061,10 +1066,11 @@ See Also
 
 =cut
 
-method foreign_slot_names( $type ) {
+method foreign_slot_names(
+         JGoff::Lisp::CFFI::ForeignCStruct $type ) {
   my ( @names );
-  for my $key ( @{ $type->keys } ) {
-    push @names, uc( $key->[ 0 ] );
+  for my $slot ( @{ $type->slots } ) {
+    push @names, uc( $slot->[ 0 ] );
   }
 
   return ( @names );
@@ -1118,15 +1124,16 @@ See Also
 =cut
 
 method foreign_slot_offset(
-  JGoff::Lisp::CFFI::ForeignCStruct $type, Str $slot_name ) {
+         JGoff::Lisp::CFFI::ForeignCStruct $type,
+         Str $slot_name ) {
   my ( $offset );
   my $current_offset = 0;
-  for my $key ( @{ $type->keys } ) {
-    if ( $slot_name eq $key->[ 0 ] ) {
+  for my $slot ( @{ $type->slots } ) {
+    if ( $slot_name eq $slot->[ 0 ] ) {
       $offset = $current_offset;
       last;
     }
-    $current_offset += $self->sizes->{ $key->[ 1 ] };
+    $current_offset += $self->sizes->{ $slot->[ 1 ] };
   }
 
   return ( $offset );
@@ -1181,14 +1188,16 @@ See Also
 =cut
 
 method foreign_slot_pointer(
-  JGoff::Lisp::CFFI::ForeignPointer $ptr,
-  $type, $slot_name ) {
+         JGoff::Lisp::CFFI::ForeignPointer $ptr,
+         JGoff::Lisp::CFFI::ForeignCStruct $type,
+         Str $slot_name ) {
   my ( $pointer );
 
   return ( $pointer );
 }
 # }}}
 
+# JMG foreign_slot_value is a setf'able location
 # {{{ foreign_slot_value
 =head2 foreign_slot_value: Returns the value of a slot in a foreign struct.
 
@@ -1244,9 +1253,12 @@ See Also
 =cut
 
 method foreign_slot_value(
-  $ptr,
-  JGoff::Lisp::CFFI::ForeignCStruct $type,
-  Str $slot_name ) {
+         JGoff::Lisp::CFFI::ForeignPointer $ptr,
+         JGoff::Lisp::CFFI::ForeignCStruct $type,
+         Str $slot_name ) {
+  my ( $object );
+
+  return ( $object );
 }
 # }}}
 
@@ -1391,7 +1403,7 @@ Examples
 
   ( $last, $result ) =
     convert_to_foreign( 'a boat', ':string' );
-  isa_ok( $last, 'Foreign::Address' );
+  isa_ok( $last, 'JGoff::Lisp::CFFI::ForeignAddress' );
   is( $result, 1 );
 
   CFFI-USER> (free-converted-object * :string t)
@@ -1407,7 +1419,9 @@ See Also
 =cut
 
 method free_converted_object(
-  JGoff::Lisp::CFFI::ForeignAddress $foreign_value, $type, $params ) {
+         JGoff::Lisp::CFFI::ForeignAddress $foreign_value,
+         $type,
+         $params ) {
   # XXX assertions on key params
 
   return;
@@ -1793,7 +1807,7 @@ See Also
 
 =cut
 
-method foreign_alloc( $type, @key ) {
+method foreign_alloc( Str $type, @key ) {
   my ( $pointer );
   $pointer = JGoff::Lisp::CFFI::ForeignPointer->new;
 
@@ -1852,7 +1866,7 @@ See Also
 
 =cut
 
-method foreign_symbol_pointer( $foreign_name, @key ) {
+method foreign_symbol_pointer( Str $foreign_name, @key ) {
   my ( $pointer );
   $pointer = JGoff::Lisp::CFFI::ForeignPointer->new;
 
@@ -1903,9 +1917,11 @@ See Also
 
 =cut
 
-method inc_pointer( JGoff::Lisp::CFFI::FunctionPointer $pointer, $offset ) {
+method inc_pointer(
+         JGoff::Lisp::CFFI::FunctionPointer $pointer,
+         Int $offset ) {
   my ( $new_pointer );
-  $new_pointer = $pointer + 1;
+  $new_pointer = $pointer + $offset;
 
   return ( $new_pointer );
 }
@@ -1965,8 +1981,10 @@ See Also
 
 =cut
 
-method incf_pointer( JGoff::Lisp::CFFI::FunctionPointer $foreign_address ) {
-  $foreign_address++; # XXX JMG do something
+method incf_pointer(
+         JGoff::Lisp::CFFI::FunctionPointer $foreign_address,
+         Int $offset ) {
+  $foreign_address += $offset ? $offset : 1; # XXX JMG do something
 }
 # }}}
 
@@ -2027,7 +2045,8 @@ See Also
 
 =cut
 
-method make_pointer( JGoff::Lisp::CFFI::ForeignAddress $address ) {
+method make_pointer(
+         JGoff::Lisp::CFFI::ForeignAddress $address ) {
   my ( $ptr );
 
   return ( $ptr );
@@ -2068,7 +2087,8 @@ Examples
 
 =cut
 
-method mem_aptr( JGoff::Lisp::CFFI::FunctionPointer $ptr, $type, @key ) {
+method mem_aptr(
+         JGoff::Lisp::CFFI::FunctionPointer $ptr, Str $type, @key ) {
 }
 # }}}
 
@@ -2125,7 +2145,8 @@ See Also
 
 =cut
 
-method mem_aref( JGoff::Lisp::CFFI::FunctionPointer $ptr, $type, @n ) {
+method mem_aref(
+         JGoff::Lisp::CFFI::FunctionPointer $ptr, Str $type, @n ) {
 }
 # }}}
 
@@ -2181,7 +2202,9 @@ See Also
 
 =cut
 
-method mem_ref( JGoff::Lisp::CFFI::FunctionPointer $ptr, $type, @key ) {
+method mem_ref(
+         JGoff::Lisp::CFFI::FunctionPointer $ptr,
+         Str $type, @key ) {
 }
 # }}}
 
@@ -2217,7 +2240,7 @@ See Also
 
 =cut
 
-method null_pointer( ) {
+method null_pointer() {
   my ( $pointer );
   $pointer = JGoff::Lisp::CFFI::ForeignPointer->new;
 
@@ -2274,7 +2297,8 @@ See Also
 
 =cut
 
-method null_pointer_p( JGoff::Lisp::CFFI::FunctionPointer $ptr ) {
+method null_pointer_p(
+         JGoff::Lisp::CFFI::FunctionPointer $ptr ) {
   my ( $boolean );
 
   return ( $boolean );
@@ -2324,7 +2348,10 @@ See Also
 
 =cut
 
-method pointerp( JGoff::Lisp::CFFI::FunctionPointer $ptr ) {
+# The point of this is to test whether $ptr is in fact a pointer or not.
+#
+method pointerp( $ptr ) {
+  return $ptr->isa( 'JGoff::Lisp::CFFI::ForeignPointer' );
 }
 # }}}
 
@@ -2367,7 +2394,8 @@ See Also
 
 =cut
 
-method pointer_address( JGoff::Lisp::CFFI::FunctionPointer $ptr ) {
+method pointer_address(
+         JGoff::Lisp::CFFI::FunctionPointer $ptr ) {
   my ( $address );
   $address = $ptr->address;
 
@@ -2411,7 +2439,9 @@ See Also
 
 =cut
 
-method pointer_eq( JGoff::Lisp::CFFI::FunctionPointer $ptr1, JGoff::Lisp::CFFI::FunctionPointer $ptr2 ) {
+method pointer_eq(
+         JGoff::Lisp::CFFI::FunctionPointer $ptr1,
+         JGoff::Lisp::CFFI::FunctionPointer $ptr2 ) {
   my ( $boolean );
   $boolean = $self->pointer_to_address( $ptr1 ) ==
              $self->pointer_to_address( $ptr2 );
@@ -2592,7 +2622,8 @@ See Also
 
 =cut
 
-method foreign_string_free( JGoff::Lisp::CFFI::FunctionPointer $pointer ) {
+method foreign_string_free(
+         JGoff::Lisp::CFFI::FunctionPointer $pointer ) {
   return;
 }
 # }}}
@@ -2693,7 +2724,9 @@ See Also
 =cut
 
 method lisp_string_to_foreign(
-  $string, JGoff::Lisp::CFFI::FunctionPointer $buffer, $bufsize, @key ) {
+         Str $string,
+         JGoff::Lisp::CFFI::FunctionPointer $buffer,
+         Int $bufsize, @key ) {
   my ( $buffer );
 
   return ( $buffer );
@@ -2861,7 +2894,10 @@ See Also
 
 =cut
 
-method defcvar() {
+method defcvar(
+         Str $name,
+         Str $type,
+         @optional ) {
 }
 # }}}
 
@@ -3105,7 +3141,7 @@ See Also
 
 =cut
 
-method foreign_funcall( $function_name, $type ) {
+method foreign_funcall( Str $function_name, $type ) {
 }
 # }}}
 
@@ -3159,7 +3195,8 @@ See Also
 
 =cut
 
-method foreign_funcall_pointer() {
+method foreign_funcall_pointer(
+         JGoff::Lisp::CFFI::ForeignPointer $ptr ) {
 }
 # }}}
 
@@ -3207,7 +3244,8 @@ See Also
 
 =cut
 
-method translate_camelcase_name ( $name, @key ) {
+method translate_camelcase_name (
+         Str $name, @key ) {
   my ( $return_value );
 
   return ( $return_value );
@@ -3496,7 +3534,7 @@ See Also
 #
 method define_foreign_library( @feature_tuples ) {
   my ( $library_descriptor );
-  $library_descriptor = JGoff::Lisp::CFFI::LibraryDescriptor->new(
+  $library_descriptor = JGoff::Lisp::CFFI::LibraryDesignator->new(
     object => @feature_tuples );
 
   return $library_descriptor;
@@ -3607,7 +3645,8 @@ See Also
 
 =cut
 
-method load_foreign_library( $library_designator ) {
+method load_foreign_library(
+         JGoff::Lisp::CFFI::LibraryDesignator $library_designator ) {
   my ( $library );
   $library = JGoff::Lisp::CFFI::FunctionLibrary->new(
     object => $library_designator );
@@ -3666,7 +3705,7 @@ See also
 =cut
 
 method use_foreign_library(
-  JGoff::Lisp::CFFI::ForeignLibraryDescriptor $library_descriptor ) {
+  JGoff::Lisp::CFFI::ForeignLibraryDesignator $library_designator ) {
 }
 # }}}
 

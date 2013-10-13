@@ -11,7 +11,7 @@ has size => (
   is => 'ro',
   default => -1
 );
-has keys => (
+has slots => (
   is => 'ro',
   isa => 'ArrayRef'
 );
