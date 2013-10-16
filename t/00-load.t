@@ -12,7 +12,7 @@ my $cffi = JGoff::Lisp::CFFI->new;
 
 # {{{ convert_to_foreign returns correct value in scalar context
 { my $foreign =
-    $cffi->convert_to_foreign( "a boat", ':string' );
+    $cffi->convert_to_foreign( "a boat", $JGoff::Lisp::CFFI::string );
 
   isa_ok(
     $foreign,
@@ -23,7 +23,7 @@ my $cffi = JGoff::Lisp::CFFI->new;
 
 # {{{ convert_to_foreign returns correct values in array context
 { my ( $params, $foreign ) =
-    $cffi->convert_to_foreign( "a boat", ':string' );
+    $cffi->convert_to_foreign( "a boat", $JGoff::Lisp::CFFI::string );
 
   isa_ok(
     $foreign,
@@ -34,8 +34,10 @@ my $cffi = JGoff::Lisp::CFFI->new;
 # }}}
 
 # {{{ convert_from_foreign
-{ my $foreign = $cffi->convert_to_foreign( "a boat", ':string' );
-  my $object = $cffi->convert_from_foreign( $foreign, ':string' );
+{ my $foreign = $cffi->convert_to_foreign(
+                  "a boat", $JGoff::Lisp::CFFI::string );
+  my $object = $cffi->convert_from_foreign(
+                 $foreign, $JGoff::Lisp::CFFI::string );
 
   isa_ok(
     $foreign,
@@ -155,10 +157,10 @@ my $cffi = JGoff::Lisp::CFFI->new;
 # {{{ defcstruct and friends
 { my $rect_struct;
   $cffi->defcstruct( \$rect_struct,
-    [ 'x' => ':int' ],
-    [ 'y' => ':int' ],
-    [ 'width' => ':int' ],
-    [ 'height' => ':int' ],
+    [ 'x'      => $JGoff::Lisp::CFFI::int ],
+    [ 'y'      => $JGoff::Lisp::CFFI::int ],
+    [ 'width'  => $JGoff::Lisp::CFFI::int ],
+    [ 'height' => $JGoff::Lisp::CFFI::int ],
   );
   isa_ok( $rect_struct, 'JGoff::Lisp::CFFI::ForeignCStruct' );
 
@@ -207,12 +209,12 @@ my $cffi = JGoff::Lisp::CFFI->new;
 
 #  my @collection;
 #  my $array;
-#  $cffi->with_foreign_object( [ $array, ':int' => 10 ], sub {
+#  $cffi->with_foreign_object( [ $array, $JGoff::Lisp::CFFI::int => 10 ], sub {
 #    for my $i ( 1 .. 10 ) {
-#      $cffi->mem_aref( $%, ':int' => $i, $i );
+#      $cffi->mem_aref( $%, $JGoff::Lisp::CFFI::int => $i, $i );
 #    }
 #    for my $i ( 1 .. 10 ) {
-#      push @collection, $cffi->mem_aref( $%, ':int' => $i );
+#      push @collection, $cffi->mem_aref( $%, $JGoff::Lisp::CFFI::int => $i );
 #    }
 #  } );
 #  is_deeply( [ @collection ],
@@ -353,7 +355,7 @@ $required_dll_version = "20120107";
 #(defcvar "dll_version" :string)
 
 my $dll_version;
-$cffi->defcvar( \$dll_version => ':string' );
+$cffi->defcvar( \$dll_version => $JGoff::Lisp::CFFI::string );
 
 #(unless (string= *dll-version* *required-dll-version*)
 #  (error "version check failed: expected ~s but libtest reports ~s"
@@ -372,10 +374,10 @@ is( $dll_version, $required_dll_version,
 #(defcvar "double_min" :double)
 
 my ( $float_max, $float_min, $double_max, $double_min );
-$cffi->defcvar( \$float_max, ':float' );
-$cffi->defcvar( \$float_min, ':float' );
-$cffi->defcvar( \$double_max, ':double' );
-$cffi->defcvar( \$double_min, ':double' );
+$cffi->defcvar( \$float_max, $JGoff::Lisp::CFFI::float );
+$cffi->defcvar( \$float_min, $JGoff::Lisp::CFFI::float );
+$cffi->defcvar( \$double_max, $JGoff::Lisp::CFFI::double );
+$cffi->defcvar( \$double_min, $JGoff::Lisp::CFFI::double );
 
 (defun run-cffi-tests (&key (compiled nil))
   (let ((regression-test::*compile-tests* compiled)
@@ -404,18 +406,30 @@ $cffi->defcvar( \$double_min, ':double' );
 #(defcfun "expect_pointer_sum"        :int (f :pointer))
 #(defcfun "expect_strcat"             :int (f :pointer))
 
-$cffi->defcfun( expect_char_sum           => ':int', [ f => ':pointer' ] );
-$cffi->defcfun( expect_unsigned_char_sum  => ':int', [ f => ':pointer' ] );
-$cffi->defcfun( expect_short_sum          => ':int', [ f => ':pointer' ] );
-$cffi->defcfun( expect_unsigned_short_sum => ':int', [ f => ':pointer' ] );
-$cffi->defcfun( expect_int_sum            => ':int', [ f => ':pointer' ] );
-$cffi->defcfun( expect_unsigned_int_sum   => ':int', [ f => ':pointer' ] );
-$cffi->defcfun( expect_long_sum           => ':int', [ f => ':pointer' ] );
-$cffi->defcfun( expect_unsigned_long_sum  => ':int', [ f => ':pointer' ] );
-$cffi->defcfun( expect_float_sum          => ':int', [ f => ':pointer' ] );
-$cffi->defcfun( expect_double_sum         => ':int', [ f => ':pointer' ] );
-$cffi->defcfun( expect_pointer_sum        => ':int', [ f => ':pointer' ] );
-$cffi->defcfun( expect_strcat             => ':int', [ f => ':pointer' ] );
+$cffi->defcfun( expect_char_sum => $JGoff::Lisp::CFFI::int,
+                [ f => $JGoff::Lisp::CFFI::pointer ] );
+$cffi->defcfun( expect_unsigned_char_sum => $JGoff::Lisp::CFFI::int,
+                [ f => $JGoff::Lisp::CFFI::pointer ] );
+$cffi->defcfun( expect_short_sum          => $JGoff::Lisp::CFFI::int,
+                [ f => $JGoff::Lisp::CFFI::pointer ] );
+$cffi->defcfun( expect_unsigned_short_sum => $JGoff::Lisp::CFFI::int,
+                [ f => $JGoff::Lisp::CFFI::pointer ] );
+$cffi->defcfun( expect_int_sum            => $JGoff::Lisp::CFFI::int,
+                [ f => $JGoff::Lisp::CFFI::pointer ] );
+$cffi->defcfun( expect_unsigned_int_sum   => $JGoff::Lisp::CFFI::int,
+                [ f => $JGoff::Lisp::CFFI::pointer ] );
+$cffi->defcfun( expect_long_sum           => $JGoff::Lisp::CFFI::int,
+                [ f => $JGoff::Lisp::CFFI::pointer ] );
+$cffi->defcfun( expect_unsigned_long_sum  => $JGoff::Lisp::CFFI::int,
+                [ f => $JGoff::Lisp::CFFI::pointer ] );
+$cffi->defcfun( expect_float_sum          => $JGoff::Lisp::CFFI::int,
+                [ f => $JGoff::Lisp::CFFI::pointer ] );
+$cffi->defcfun( expect_double_sum         => $JGoff::Lisp::CFFI::int,
+                [ f => $JGoff::Lisp::CFFI::pointer ] );
+$cffi->defcfun( expect_pointer_sum        => $JGoff::Lisp::CFFI::int,
+                [ f => $JGoff::Lisp::CFFI::pointer ] );
+$cffi->defcfun( expect_strcat             => $JGoff::Lisp::CFFI::int,
+                [ f => $JGoff::Lisp::CFFI::pointer ] );
 
 ##-cffi-sys::no-long-long
 #(progn
@@ -423,17 +437,17 @@ $cffi->defcfun( expect_strcat             => ':int', [ f => ':pointer' ] );
 #  (defcfun "expect_unsigned_long_long_sum" :int (f :pointer)))
 
 unless ( $JGoff::Lisp::CFFI::no_long_long ) {
-  $cffi->defcfun( expect_long_long_sum => ':int',
-    [ f => ':pointer' ] );
-  $cffi->defcfun( expect_unsigned_long_long_sum => ':int',
-    [ f => ':pointer' ] );
+  $cffi->defcfun( expect_long_long_sum => $JGoff::Lisp::CFFI::int,
+    [ f => $JGoff::Lisp::CFFI::pointer ] );
+  $cffi->defcfun( expect_unsigned_long_long_sum => $JGoff::Lisp::CFFI::int,
+    [ f => $JGoff::Lisp::CFFI::pointer ] );
 }
 
 ##+long-float
 #(defcfun "expect_long_double_sum"    :int (f :pointer))
 
 if ( $JGoff::Lisp::CFFI::long_float ) {
-  $cffi->defcfun( expect_long_double_sum => ':int', [ f => ':pointer' ] );
+  $cffi->defcfun( expect_long_double_sum => $JGoff::Lisp::CFFI::int, [ f => $JGoff::Lisp::CFFI::pointer ] );
 }
 
 #(defcallback sum-char :char ((a :char) (b :char))
@@ -441,7 +455,9 @@ if ( $JGoff::Lisp::CFFI::long_float ) {
 #  ;(format t "~%}}} a: ~A, b: ~A {{{~%" a b)
 #  (return-from sum-char (+ a b)))
 
-$cffi->defcallback( sum_char => ':char', [ [ a => ':char' ], [ b => ':char' ] ],
+$cffi->defcallback( sum_char => $JGoff::Lisp::CFFI::char,
+                    [ [ a => $JGoff::Lisp::CFFI::char ],
+                      [ b => $JGoff::Lisp::CFFI::char ] ],
   "Test if the named block is present and the docstring too.",
   sub {
     # ...
@@ -453,10 +469,11 @@ $cffi->defcallback( sum_char => ':char', [ [ a => ':char' ], [ b => ':char' ] ],
 #  ;(format t "~%}}} a: ~A, b: ~A {{{~%" a b)
 #  (+ a b))
 
-$cffi->defcallback( sum_unsigned_char => ':unsigned_char',
-  [ [ a => ':unsigned-char' ], [ b => ':unsigned-char' ] ],
+$cffi->defcallback( sum_unsigned_char => $JGoff::Lisp::CFFI::unsigned_char,
+  [ [ a => $JGoff::Lisp::CFFI::unsigned_char ],
+    [ b => $JGoff::Lisp::CFFI::unsigned_char ] ],
   sub {
-    return $_{a} + $_{b}
+    $_{a} + $_{b}
   }
 );
 
@@ -464,10 +481,11 @@ $cffi->defcallback( sum_unsigned_char => ':unsigned_char',
 #  ;(format t "~%}}} a: ~A, b: ~A {{{~%" a b)
 #  (+ a b))
 
-$cffi->defcallback( sum_short => ':short',
-  [ [ a => ':short' ], [ b => ':short' ] ],
+$cffi->defcallback( sum_short => $JGoff::Lisp::CFFI::short,
+  [ [ a => $JGoff::Lisp::CFFI::short ],
+    [ b => $JGoff::Lisp::CFFI::short ] ],
   sub {
-    return $_{a} + $_{b}
+    $_{a} + $_{b}
   }
 );
 
@@ -476,18 +494,20 @@ $cffi->defcallback( sum_short => ':short',
 #  ;(format t "~%}}} a: ~A, b: ~A {{{~%" a b)
 #  (+ a b))
 
-$cffi->defcallback( sum_unsigned_short => ':unsigned-short',
-  [ [ a => ':unsigned-short' ], [ b => ':unsigned-short' ] ],
+$cffi->defcallback( sum_unsigned_short => $JGoff::Lisp::CFFI::unsigned_short,
+  [ [ a => $JGoff::Lisp::CFFI::unsigned_short ],
+    [ b => $JGoff::Lisp::CFFI::unsigned_short ] ],
   sub {
-    return $_{a} + $_{b}
+    $_{a} + $_{b}
   }
 );
 
 #(defcallback sum-int :int ((a :int) (b :int))
 #  (+ a b))
 
-$cffi->defcallback( sum_int => ':int',
-  [ [ a => ':int' ], [ b => ':int' ] ],
+$cffi->defcallback( sum_int => $JGoff::Lisp::CFFI::int,
+  [ [ a => $JGoff::Lisp::CFFI::int ],
+    [ b => $JGoff::Lisp::CFFI::int ] ],
   sub {
     return $_{a} + $_{b}
   }
@@ -497,8 +517,9 @@ $cffi->defcallback( sum_int => ':int',
 #    ((a :unsigned-int) (b :unsigned-int))
 #  (+ a b))
 
-$cffi->defcallback( sum_unsigned_int => ':unsigned-int',
-  [ [ a => ':unsigned-int' ], [ b => ':unsigned-int' ] ],
+$cffi->defcallback( sum_unsigned_int => $JGoff::Lisp::CFFI::unsigned_int,
+  [ [ a => $JGoff::Lisp::CFFI::unsigned_int ],
+    [ b => $JGoff::Lisp::CFFI::unsigned_int ] ],
   sub {
     return $_{a} + $_{b}
   }
@@ -507,8 +528,9 @@ $cffi->defcallback( sum_unsigned_int => ':unsigned-int',
 #(defcallback sum-long :long ((a :long) (b :long))
 #  (+ a b))
 
-$cffi->defcallback( sum_long => ':long',
-  [ [ a => ':long' ], [ b => ':long' ] ],
+$cffi->defcallback( sum_short => $JGoff::Lisp::CFFI::short,
+  [ [ a => $JGoff::Lisp::CFFI::short ],
+    [ b => $JGoff::Lisp::CFFI::short ] ],
   sub {
     return $_{a} + $_{b}
   }
@@ -518,8 +540,9 @@ $cffi->defcallback( sum_long => ':long',
 #    ((a :unsigned-long) (b :unsigned-long))
 #  (+ a b))
 
-$cffi->defcallback( sum_unsigned_long => ':unsigned-long',
-  [ [ a => ':unsigned-long' ], [ b => ':unsigned-long' ] ],
+$cffi->defcallback( sum_unsigned_long => $JGoff::Lisp::CFFI::unsigned_long,
+  [ [ a => $JGoff::Lisp::CFFI::unsigned_long ],
+    [ b => $JGoff::Lisp::CFFI::unsigned_long ] ],
   sub {
     return $_{a} + $_{b}
   }
@@ -536,15 +559,19 @@ $cffi->defcallback( sum_unsigned_long => ':unsigned-long',
 #    (+ a b)))
 
 unless ( $JGoff::Lisp::CFFI::no_long_long ) {
-  $cffi->defcallback( sum_unsigned_long_long => ':unsigned-long-long',
-    [ [ a => ':unsigned-long-long' ], [ b => ':unsigned-long-long' ] ],
+  $cffi->defcallback(
+    sum_unsigned_long_long => $JGoff::Lisp::CFFI::unsigned_long,
+    [ [ a => $JGoff::Lisp::CFFI::unsigned_long_long ],
+      [ b => $JGoff::Lisp::CFFI::unsigned_long_long ] ],
     sub {
       return $_{a} + $_{b}
     }
   );
   
-  $cffi->defcallback( sum_long_long => ':long-long',
-    [ [ a => ':long-long' ], [ b => ':long-long' ] ],
+  $cffi->defcallback(
+    sum_long_long => $JGoff::Lisp::CFFI::unsigned_long,
+    [ [ a => $JGoff::Lisp::CFFI::long_long ],
+      [ b => $JGoff::Lisp::CFFI::long_long ] ],
     sub {
       return $_{a} + $_{b}
     }
@@ -555,10 +582,11 @@ unless ( $JGoff::Lisp::CFFI::no_long_long ) {
 #  ;(format t "~%}}} a: ~A, b: ~A {{{~%" a b)
 #  (+ a b))
 
-$cffi->defcallback( sum_float => ':float',
-  [ [ a => ':float' ], [ b => ':float' ] ],
+$cffi->defcallback( sum_float => $JGoff::Lisp::CFFI::float,
+  [ [ a => $JGoff::Lisp::CFFI::float ],
+    [ b => $JGoff::Lisp::CFFI::float ] ],
   sub {
-    return $_{a} + $_{b}
+    $_{a} + $_{b}
   }
 );
 
@@ -566,10 +594,11 @@ $cffi->defcallback( sum_float => ':float',
 #  ;(format t "~%}}} a: ~A, b: ~A {{{~%" a b)
 #  (+ a b))
 
-$cffi->defcallback( sum_double => ':double',
-  [ [ a => ':double' ], [ b => ':double' ] ],
+$cffi->defcallback( sum_double => $JGoff::Lisp::CFFI::float,
+  [ [ a => $JGoff::Lisp::CFFI::double ],
+    [ b => $JGoff::Lisp::CFFI::double ] ],
   sub {
-    return $_{a} + $_{b}
+    $_{a} + $_{b}
   }
 );
 
@@ -579,10 +608,11 @@ $cffi->defcallback( sum_double => ':double',
 #  (+ a b))
 
 if ( $JGoff::Lisp::CFFI::long_float ) {
-  $cffi->defcallback( sum_long_double => ':long-double',
-    [ [ a => ':long-double' ], [ b => ':long-double' ] ],
+  $cffi->defcallback( sum_long_double => $JGoff::Lisp::CFFI::float,
+    [ [ a => $JGoff::Lisp::CFFI::long_double ],
+      [ b => $JGoff::Lisp::CFFI::long_double ] ],
     sub {
-      return $_{a} + $_{b}
+      $_{a} + $_{b}
     }
   );
 }
@@ -590,8 +620,9 @@ if ( $JGoff::Lisp::CFFI::long_float ) {
 #(defcallback sum-pointer :pointer ((ptr :pointer) (offset :int))
 #  (inc-pointer ptr offset))
 
-$cffi->defcallback( sum_pointer => ':pointer',
-  [ [ ptr => ':pointer' ], [ offset => ':int' ] ],
+$cffi->defcallback( sum_pointer => $JGoff::Lisp::CFFI::pointer,
+  [ [ ptr => $JGoff::Lisp::CFFI::pointer ],
+    [ offset => $JGoff::Lisp::CFFI::int ] ],
   sub {
     $cffi->inc_ponter( $_{ptr}, $_{offset} ); # XXX $cffi...
   }
@@ -600,8 +631,9 @@ $cffi->defcallback( sum_pointer => ':pointer',
 #(defcallback lisp-strcat :string ((a :string) (b :string))
 #  (concatenate 'string a b))
 
-$cffi->defcallback( lisp_strcat => ':string',
-  [ [ a => ':string' ], [ b => ':string' ] ],
+$cffi->defcallback( lisp_strcat => $JGoff::Lisp::CFFI::string,
+  [ [ a => $JGoff::Lisp::CFFI::string ],
+    [ b => $JGoff::Lisp::CFFI::string ] ],
   sub {
     $_{a} . $_{b}
   }
@@ -696,10 +728,10 @@ $cffi->defcallback( lisp_strcat => ':string',
 #  (fun-compar :pointer))
 
 $cffi->defcfun( qsort => ':void',
-  [ base => ':pointer' ],
-  [ nmemb => ':int' ],
-  [ size => ':int' ],
-  [ fun_compar => ':pointer' ] );
+  [ base => $JGoff::Lisp::CFFI::pointer ],
+  [ nmemb => $JGoff::Lisp::CFFI::int ],
+  [ size => $JGoff::Lisp::CFFI::int ],
+  [ fun_compar => $JGoff::Lisp::CFFI::pointer ] );
 
 #
 # Woo, maybe overload here?
@@ -730,14 +762,14 @@ $int = -1;
 
 #(defcfun "pass_int_ref" :void (f :pointer))
 
-$cffi->defcfun( pass_int_ref => ':void', [ f => ':pointer' ] );
+$cffi->defcfun( pass_int_ref => ':void', [ f => $JGoff::Lisp::CFFI::pointer ] );
 
 #;;; CMUCL chokes on this one for some reason.
 #(defcallback read-int-from-pointer :void ((a :pointer))
 #  (setq *int* (mem-ref a :int)))
 
 $cffi->defcallback( read_int_from_pointer => ':void',
-  [ [ a => ':pointer' ] ],
+  [ [ a => $JGoff::Lisp::CFFI::pointer ] ],
   sub {
     $int = $cffi->mem_ref( $_{a} => ':int' )
   }
@@ -799,7 +831,7 @@ if ( $JGoff::Lisp::CFFI::no_foreign_funcall ) {
 
 #(defcfun "call_sum_127_no_ll" :long (cb :pointer))
 
-$cffi->defcfun( call_sum_127_no_ll => ':long', [ cb => ':pointer' ] );
+$cffi->defcfun( call_sum_127_no_ll => ':long', [ cb => $JGoff::Lisp::CFFI::pointer ] );
 
 ;;; CMUCL, ECL and CCL choke on this one.
 #.(cl:if (cl:>= cl:lambda-parameters-limit 127) '(:or) '(:and)))
@@ -1688,7 +1720,7 @@ $cffi->defcvar( var_long =>               ':long' );
 $cffi->defcvar( var_unsigned_long =>      ':unsigned-long' );
 $cffi->defcvar( var_float =>              ':float' );
 $cffi->defcvar( var_double =>             ':double' );
-$cffi->defcvar( var_pointer =>            ':pointer' );
+$cffi->defcvar( var_pointer =>            $JGoff::Lisp::CFFI::pointer );
 $cffi->defcvar( var_string =>             ':string' );
 $cffi->defcvar( var_long_long =>          ':long-long' );
 $cffi->defcvar( var_unsigned_long_long => ':unsigned-long-long' );
@@ -2599,7 +2631,7 @@ $cffi->defcstruct( \$mem_aref_bare_struct, [ a => ':uint8' ] );
 #(defctype pointer-alias :pointer)
 
 my $pointer_alias;
-$cffi->defctype( \$pointer_alias, ':pointer' );
+$cffi->defctype( \$pointer_alias, $JGoff::Lisp::CFFI::pointer );
 
 (deftest foreign-alloc.8
     (progn
@@ -4226,13 +4258,13 @@ ARG-TYPES list and whose sum fits in RETTYPE."
 ### 
 ### ###   (defcfun "curl_easy_init" :pointer)
 ### 
-### $cffi->defcfun( curl_easy_init => ':pointer' );
+### $cffi->defcfun( curl_easy_init => $JGoff::Lisp::CFFI::pointer );
 ### 
 ### ###   (defcfun "curl_easy_cleanup" :void
 ### ###     (easy-handle :pointer))
 ### 
 ### $cffi->defcfun( curl_easy_cleanup => ':void',
-###   [ $easy_handle => ':pointer' ] );
+###   [ $easy_handle => $JGoff::Lisp::CFFI::pointer ] );
 ### 
 ### ###   cffi-user> (defparameter *easy-handle* (curl-easy-init))
 ### ###   => *EASY-HANDLE*
@@ -4297,7 +4329,7 @@ ARG-TYPES list and whose sum fits in RETTYPE."
 ### ###   ;;; pointer.
 ### ###   (defctype easy-handle :pointer)
 ### 
-### my $easy_handle = $cffi->defctype( ':pointer' );
+### my $easy_handle = $cffi->defctype( $JGoff::Lisp::CFFI::pointer );
 ### 
 ### ###   (defmacro curl-easy-setopt (easy-handle enumerated-name
 ### ###                               value-type new-value)
@@ -4624,7 +4656,7 @@ ARG-TYPES list and whose sum fits in RETTYPE."
 ### 
 ### $easy_handle_type = define_foreign_type(
 ###   [ ],
-###   [ ':actual-type' => ':pointer' ],
+###   [ ':actual-type' => $JGoff::Lisp::CFFI::pointer ],
 ###   [ ':simple-parser' => $easy_handle ] );
 ### 
 ### ###   (defmethod translate-to-foreign (handle (type easy-handle-type))

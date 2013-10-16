@@ -15,6 +15,40 @@ use JGoff::Lisp::CFFI::ForeignLibrary;
 use JGoff::Lisp::CFFI::ForeignLibraryDesignator;
 use JGoff::Lisp::CFFI::ForeignPointer;
 
+use JGoff::Lisp::CFFI::CoreType;
+
+our $char =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':char', size => 1 );
+our $unsigned_char =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':unsigned-char', size => 1 );
+our $int =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':int', size => 2 );
+our $unsigned_int =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':unsigned-int', size => 2 );
+our $short =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':short', size => 2 );
+our $unsigned_short =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':unsigned-short', size => 2 );
+our $long =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':long', size => 4 );
+our $unsigned_long =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':unsigned-long', size => 4 );
+our $float =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':float', size => 8 );
+our $double =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':double', size => 10 );
+our $long_double =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':long-double', size => 20 );
+our $long_long =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':long-long', size => 8 );
+our $unsigned_long_long =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':unsigned-long-long', size => 8 );
+
+our $string =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':string', size => 0 );
+our $pointer =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':pointer', size => 4 );
+
 #
 # with-foreign-object is a wrapper around with-foreign-pointer.
 # with-foreign-pointer relies on foreign-alloc.
@@ -157,7 +191,7 @@ Examples
   => T
 
   ( $last, $result ) =
-    convert_to_foreign( 'a boat', ':string' );
+    convert_to_foreign( 'a boat', $JGoff::Lisp::CFFI::string );
   isa_ok( $last, 'Foreign::Address' );
   is( $result, 1 );
 
@@ -171,7 +205,7 @@ Examples
 
 method convert_from_foreign(
          JGoff::Lisp::CFFI::ForeignAddress $foreign_value,
-         Str $type ) {
+         JGoff::Lisp::CFFI::CoreType $type ) {
   my ( $object );
   $object = $foreign_value->object;
 
@@ -234,7 +268,7 @@ Examples
 #
 method convert_to_foreign(
          $object,
-         Str $type ) {
+         JGoff::Lisp::CFFI::CoreType $type ) {
   my ( $foreign_value, $alloc_params );
   $foreign_value =
     JGoff::Lisp::CFFI::ForeignAddress->new( object => $object );
@@ -1107,7 +1141,7 @@ method foreign_slot_offset(
       $offset = $current_offset;
       last;
     }
-    $current_offset += $self->sizes->{ $slot->[ 1 ] };
+    $current_offset += $slot->[ 1 ]->size;
   }
 
   return ( $offset );
