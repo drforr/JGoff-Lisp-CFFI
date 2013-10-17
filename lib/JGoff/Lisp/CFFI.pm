@@ -17,6 +17,8 @@ use JGoff::Lisp::CFFI::ForeignPointer;
 
 use JGoff::Lisp::CFFI::CoreType;
 
+our $boolean =
+  JGoff::Lisp::CFFI::CoreType->new( name => ':char', size => 1 );
 our $char =
   JGoff::Lisp::CFFI::CoreType->new( name => ':char', size => 1 );
 our $unsigned_char =
@@ -58,16 +60,6 @@ our $pointer =
 # Not that I *can't* mimick them, I just choose not to on the grounds that
 # it's not a very perl'y thing to do.
 #
-
-has sizes => (
-  is => 'ro',
-  isa => 'HashRef',
-  default => sub { {
-    ':char' => 1,
-    ':int' => 2,
-    ':long' => 4,
-  } }
-);
 
 our $no_long_long = undef; # Exposed from cffi-sys.
 our $long_float = undef; # Exposed from cffi-sys.
@@ -154,9 +146,9 @@ Perhaps a little code snippet.
     #
     # Again, yes, \$curl_code is clunky, but it's temporarily.
     #
-    $cffi->defctype( \$curl_code, ':int' );
+    $cffi->defctype( \$curl_code, $JGoff::Lisp::CFFI::int );
     $cffi->defcfun( curl_global_init => $curl_code,
-      [ flags => ':long' ] );
+      [ flags => $JGoff::Lisp::CFFI::long ] );
 
     curl_global_init( 0 );
 
@@ -198,7 +190,7 @@ Examples
   CFFI-USER> (convert-from-foreign * :string)
   => "a boat"
 
-  is( convert_from_foreign( $last, ':string' ),
+  is( convert_from_foreign( $last, $JGoff::Lisp::CFFI::string ),
       'a boat' );
 
 =cut
@@ -244,7 +236,7 @@ Examples
   => NIL
 
   # XXX no real 'bool' type, prove the point with '2.1' here.
-  ( $value, $type ) = convert_to_foreign( 2.1, ':boolean' );
+  ( $value, $type ) = convert_to_foreign( 2.1, $JGoff::Lisp::CFFI::boolean );
   is( $value, 1 );
   nok( $type );
 
@@ -252,14 +244,15 @@ Examples
   => #<FOREIGN-ADDRESS #x097C5F80>
   => T
 
-  ( $last, $type ) = convert_to_foreign( 'hello, world', ':string' );
+  ( $last, $type ) =
+    convert_to_foreign( 'hello, world', $JGoff::Lisp::CFFI::string );
   isa_ok( $last, 'Foreign::Address' );
   ok( $type );
 
   CFFI-USER> (code-char (mem-aref * :char 5))
   => #\,
 
-  is( code_char( $cffi->mem_aref( $last, ':char', 5 ) ),
+  is( code_char( $cffi->mem_aref( $last, $JGoff::Lisp::CFFI::char, 5 ) ),
       ',' );
 
 =cut
@@ -350,10 +343,10 @@ Examples
   # There's already a 'open', so inject stdio's open() as 'unix_open'.
   # Also, as a nicety translate '-' => '_'
   #
-  $cffi->defcfun( [ open => 'unix-open' ] => ':int',
-    [ path => ':string' ],
+  $cffi->defcfun( [ open => 'unix-open' ] => $JGoff::Lisp::CFFI::int,
+    [ path => $JGoff::Lisp::CFFI::string ],
     [ flags => $open_flags ],
-    [ mode => ':uint16' ] );
+    [ mode => $JGoff::Lisp::CFFI::uint16 ] );
    
   CFFI> (unix-open "/tmp/foo" '(:wronly :creat) #o644)
   => #<an fd>
@@ -453,8 +446,8 @@ Examples
 
   $cffi->defcstruct( \$point,
     "Point structure.",
-    [ 'x' => ':int' ],
-    [ 'y' => ':int' ] );
+    [ 'x' => $JGoff::Lisp::CFFI::int ],
+    [ 'y' => $JGoff::Lisp::CFFI::int ] );
    
   CFFI> (with-foreign-object (ptr 'point)
           ;; Initialize the slots
@@ -481,9 +474,9 @@ Examples
   $cffi->defcstruct( \$foo,
     [ ':size' => 32 ],
     "Some struct with 32 bytes.",
-    [ 'x' => ':int', ':offset' => 16 ],
-    [ 'y' => ':int' ],
-    [ 'z' => ':char', ':offset' => 24 ] );
+    [ 'x' => $JGoff::Lisp::CFFI::int, ':offset' => 16 ],
+    [ 'y' => $JGoff::Lisp::CFFI::int ],
+    [ 'z' => $JGoff::Lisp::CFFI::char', ':offset' => 24 ] );
    
   CFFI> (foreign-type-size 'foo)
   => 32
@@ -495,15 +488,15 @@ Examples
     (height :int))
 
   $cffi->defstruct( \$cv_size,
-    [ 'width' => ':int' ],
-    [ 'height' => ':int' ] );
+    [ 'width'  => $JGoff::Lisp::CFFI::int ],
+    [ 'height' => $JGoff::Lisp::CFFI::int ] );
 
   ;;; Using :count to define arrays inside of a struct.
   (defcstruct video_tuner
     (name :char :count 32))
 
   $cffi->defcstruct( \$video_tuner,
-    [ 'name' => ':char', ':count' => 32 ] );
+    [ 'name' => $JGoff::Lisp::CFFI::char, ':count' => 32 ] );
 
 =cut
 
@@ -569,8 +562,8 @@ Examples
     (bytes :unsigned-char :count 4))
 
   $uint32_bytes = $cffi->defcunion(
-    [ 'int_value' => ':unsigned-int' ],
-    [ 'bytes' => ':unsigned-int', ':count' => 4 ] );
+    [ 'int_value' => $JGoff::Lisp::CFFI::unsigned_int ],
+    [ 'bytes' => $JGoff::Lisp::CFFI::unsigned_int, ':count' => 4 ] );
 
 =cut
 
@@ -588,7 +581,7 @@ method defcunion(
 =head2 defctype - Defines a foreign typedef.
 
   /* typedef error_code int; */
-  $cffi->defctype( \$error_code => ':int' );
+  $cffi->defctype( \$error_code => $JGoff::Lisp::CFFI::int );
 
 (Foreign Types)
 
@@ -610,13 +603,13 @@ Examples
   (defctype my-string :string
     "My own string type.")
 
-  $cffi->defctype( \$my_string => ':string',
+  $cffi->defctype( \$my_string => $JGoff::Lisp::CFFI::string,
     'My own string type.' );
    
   (defctype long-bools (:boolean :long)
     "Booleans that map to C longs.")
 
-  $cffi->defctype( \$long_bools => [ ':boolean', ':long' ],
+  $cffi->defctype( \$long_bools => [ $JGoff::Lisp::CFFI::boolean, $JGoff::Lisp::CFFI::long ],
     'Booleans that map to C longs' );
 
 =cut
@@ -762,12 +755,13 @@ Examples
   CFFI> (canonicalize-foreign-type :boolean)
   => :INT
 
-  is( $cffi->canonicalize_foreign_type( ':boolean' ), ':INT' );
+  is( $cffi->canonicalize_foreign_type( $JGoff::Lisp::CFFI::boolean ), ':INT' );
 
   CFFI> (canonicalize-foreign-type '(:boolean :long))
   => :LONG
 
-  is( $cffi->canonicalize_foreign_type( [ ':boolean', ':long' ] ), ':LONG' );
+  is( $cffi->canonicalize_foreign_type(
+        [ $JGoff::Lisp::CFFI::boolean, $JGoff::Lisp::CFFI::long ] ), ':LONG' );
 
   CFFI> (canonicalize-foreign-type '(:boolean :float))
   ;; error--> signalled by ECASE.
@@ -816,12 +810,13 @@ Examples
   CFFI> (canonicalize-foreign-type :boolean)
   => :INT
 
-  is( $cffi->canonicalize_foreign_type( ':boolean' ), ':INT' );
+  is( $cffi->canonicalize_foreign_type( $JGoff::Lisp::CFFI::boolean ), ':INT' );
 
   CFFI> (canonicalize-foreign-type '(:boolean :long))
   => :LONG
 
-  is( $cffi->canonicalize_foreign_type( [ ':boolean', ':long' ] ), ':LONG' );
+  is( $cffi->canonicalize_foreign_type(
+        [ $JGoff::Lisp::CFFI::boolean, $JGoff::Lisp::CFFI::long ] ), ':LONG' );
 
   CFFI> (canonicalize-foreign-type '(:boolean :float))
   ;; error--> signalled by ECASE.
@@ -1068,8 +1063,8 @@ Examples
     (tv-usecs :long))
 
   $cffi->defcstruct( \$timeval,
-    [ 'tv-secs' => ':long' ],
-    [ 'tv-usecs' => ':long' ] );
+    [ 'tv-secs'  => $JGoff::Lisp::CFFI::long ],
+    [ 'tv-usecs' => $JGoff::Lisp::CFFI::long ] );
    
   CFFI> (foreign-slot-names '(:struct timeval))
   => (TV-SECS TV-USECS)
@@ -1116,8 +1111,8 @@ Examples
     (tv-usecs :long))
 
   $cffi->defcstruct( \$timeval,
-    [ 'tv-secs' => ':long' ],
-    [ 'tv-usecs' => ':long' ] );
+    [ 'tv-secs'  => $JGoff::Lisp::CFFI::long ],
+    [ 'tv-usecs' => $JGoff::Lisp::CFFI::long ] );
    
   CFFI> (foreign-slot-offset '(:struct timeval) 'tv-secs)
   => 0
@@ -1179,8 +1174,8 @@ Examples
 
   $cffi->defcstruct( \$point,
     "Pointer structure.",
-    [ 'x' => ':int' ],
-    [ 'y' => ':int' ] );
+    [ 'x' => $JGoff::Lisp::CFFI::int ],
+    [ 'y' => $JGoff::Lisp::CFFI::int ] );
    
   CFFI> (with-foreign-object (ptr '(:struct point))
           (foreign-slot-pointer ptr '(:struct point) 'x))
@@ -1235,8 +1230,8 @@ Examples
 
   $cffi->defcstruct( \$point,
     "Pointer structure.",
-    [ 'x' => ':int' ],
-    [ 'y' => ':int' ] );
+    [ 'x' => $JGoff::Lisp::CFFI::int ],
+    [ 'y' => $JGoff::Lisp::CFFI::int ] );
    
   CFFI> (with-foreign-object (ptr '(:struct point))
           ;; Initialize the slots
@@ -1283,23 +1278,23 @@ Examples
   CFFI> (foreign-type-alignment :char)
   => 1
 
-  is( $cffi->foreign_type_alignment( ':char' ), 1 );
+  is( $cffi->foreign_type_alignment( $JGoff::Lisp::CFFI::char ), 1 );
 
   CFFI> (foreign-type-alignment :short)
   => 2
 
-  is( $cffi->foreign_type_alignment( ':short' ), 2 );
+  is( $cffi->foreign_type_alignment( $JGoff::Lisp::CFFI::short ), 2 );
 
   CFFI> (foreign-type-alignment :int)
   => 4
 
-  is( $cffi->foreign_type_alignment( ':int' ), 4 );
+  is( $cffi->foreign_type_alignment( $JGoff::Lisp::CFFI::int ), 4 );
 
   (defcstruct foo
     (a :char))
 
   $cffi->defcstruct( \$foo,
-    [ 'a' => ':char' ] );
+    [ 'a' => $JGoff::Lisp::CFFI::char ] );
    
   CFFI> (foreign-type-alignment '(:struct foo))
   => 1
@@ -1339,18 +1334,18 @@ Examples
     (c :char))
 
   $cffi->defcstruct( \$foo,
-    [ 'a' => ':double' ],
-    [ 'c' => ':char' ] );
+    [ 'a' => $JGoff::Lisp::CFFI::double ],
+    [ 'c' => $JGoff::Lisp::CFFI::char ] );
    
   CFFI> (foreign-type-size :double)
   => 8
 
-  is( $cffi->foreign_type_size( ':double' ), 8 );
+  is( $cffi->foreign_type_size( $JGoff::Lisp::CFFI::double ), 8 );
 
   CFFI> (foreign-type-size :char)
   => 1
 
-  is( $cffi->foreign_type_size( ':char' ), 1 );
+  is( $cffi->foreign_type_size( $JGoff::Lisp::CFFI::char ), 1 );
 
   CFFI> (foreign-type-size '(:struct foo))
   => 16
@@ -1398,14 +1393,14 @@ Examples
   => T
 
   ( $last, $result ) =
-    convert_to_foreign( 'a boat', ':string' );
+    convert_to_foreign( 'a boat', $JGoff::Lisp::CFFI::string );
   isa_ok( $last, 'JGoff::Lisp::CFFI::ForeignAddress' );
   is( $result, 1 );
 
   CFFI-USER> (free-converted-object * :string t)
   => NIL
 
-  nok( $cffi->free_converted_object( $last, ':string', 1 ) );
+  nok( $cffi->free_converted_object( $last, $JGoff::Lisp::CFFI::string, 1 ) );
 
 =cut
 
@@ -1620,17 +1615,17 @@ Examples
     (gmtoff :long))
 
   $cffi->defcstruct( \$tm,
-    [ 'sec' => ':int' ],
-    [ 'min' => ':int' ],
-    [ 'hour' => ':int' ],
-    [ 'mday' => ':int' ],
-    [ 'mon' => ':int' ],
-    [ 'year' => ':int' ],
-    [ 'wday' => ':int' ],
-    [ 'yday' => ':int' ],
-    [ 'isdst' => ':boolean' ],
-    [ 'zone' => ':string' ],
-    [ 'gmtoff' => ':long' ] );
+    [ 'sec'    => $JGoff::Lisp::CFFI::int     ],
+    [ 'min'    => $JGoff::Lisp::CFFI::int     ],
+    [ 'hour'   => $JGoff::Lisp::CFFI::int     ],
+    [ 'mday'   => $JGoff::Lisp::CFFI::int     ],
+    [ 'mon'    => $JGoff::Lisp::CFFI::int     ],
+    [ 'year'   => $JGoff::Lisp::CFFI::int     ],
+    [ 'wday'   => $JGoff::Lisp::CFFI::int     ],
+    [ 'yday'   => $JGoff::Lisp::CFFI::int     ],
+    [ 'isdst'  => $JGoff::Lisp::CFFI::boolean ],
+    [ 'zone'   => $JGoff::Lisp::CFFI::string  ],
+    [ 'gmtoff' => $JGoff::Lisp::CFFI::long    ] );
    
   CFFI> (with-foreign-object (time :int)
           (setf (mem-ref time :int)
@@ -1693,7 +1688,7 @@ Examples
   CFFI> (foreign-alloc :int)
   => #<A Mac Pointer #x1022E0>
 
-  $last = $cffi->foreign_alloc( ':int' );
+  $last = $cffi->foreign_alloc( $JGoff::Lisp::CFFI::int );
 
   CFFI> (foreign-free *)
   => NIL
@@ -1747,27 +1742,28 @@ Examples
   CFFI> (foreign-alloc :char)
   => #<A Mac Pointer #x102D80>     ; A pointer to 1 byte of memory.
 
-  $cffi->foreign_alloc( ':char' );
+  $cffi->foreign_alloc( $JGoff::Lisp::CFFI::char );
    
   CFFI> (foreign-alloc :char :count 20)
   => #<A Mac Pointer #x1024A0>     ; A pointer to 20 bytes of memory.
 
-  $cffi->foreign_alloc( ':char', ':count' => 20 );
+  $cffi->foreign_alloc( $JGoff::Lisp::CFFI::char, ':count' => 20 );
    
   CFFI> (foreign-alloc :int :initial-element 12)
   => #<A Mac Pointer #x1028B0>
 
-  $last = $cffi->foreign_alloc( ':int', ':initial-element' => 12 );
+  $last = $cffi->foreign_alloc(
+            $JGoff::Lisp::CFFI::int, ':initial-element' => 12 );
 
   CFFI> (mem-ref * :int)
   => 12
 
-  is( $cffi->mem_ref( $last, ':int' ), 12 );
+  is( $cffi->mem_ref( $last, $JGoff::Lisp::CFFI::int ), 12 );
    
   CFFI> (foreign-alloc :int :initial-contents '(1 2 3))
   => #<A Mac Pointer #x102950>
 
-  $last = $cffi->foreign_alloc( ':int', ':initial-contents' => [ 1, 2, 3 ] );
+  $last = $cffi->foreign_alloc($JGoff::Lisp::CFFI::int, ':initial-contents' => [ 1, 2, 3 ] );
 
   CFFI> (loop for i from 0 below 3
               collect (mem-aref * :int i))
@@ -1776,7 +1772,7 @@ Examples
   CFFI> (foreign-alloc :int :initial-contents #(1 2 3))
   => #<A Mac Pointer #x102960>
 
-  $last = $cffi->foreign_alloc( ':int', ':initial-contents' => [ 1, 2, 3 ] );
+  $last = $cffi->foreign_alloc( $JGoff::Lisp::CFFI::int, ':initial-contents' => [ 1, 2, 3 ] );
 
   CFFI> (loop for i from 0 below 3
               collect (mem-aref * :int i))
@@ -1787,7 +1783,8 @@ Examples
   CFFI> (foreign-alloc :string :initial-element "foo")
   => #<A Mac Pointer #x102C40>
 
-  $pointer = $cffi->foreign_alloc( ':string', ':initial-element' => "foo" );
+  $pointer = $cffi->foreign_alloc(
+               $JGoff::Lisp::CFFI::string, ':initial-element' => "foo" );
 
   ;;; Allocate a null-terminated array of strings.
   ;;; (Note: FOREIGN-STRING-TO-LISP returns NIL when passed a null pointer)
@@ -1797,12 +1794,16 @@ Examples
   => #<A Mac Pointer #x102D20>
 
   $last = $cffi->foreign_alloc(
-    ':string', ':initial-contents' => [ "foo", "bar", "baz" ],
+    $JGoff::Lisp::CFFI::string, ':initial-contents' => [ "foo", "bar", "baz" ],
     ':null-terminated-p' => 1 );
 
   CFFI> (loop for i from 0 below 4
               collect (mem-aref * :string i))
   => ("foo" "bar" "baz" NIL)
+
+  for my $i ( 0 .. 3 ) {
+    push @collection, $cffi->mem_aref( $last, $JGoff::Lisp::CFFI::string, $i );
+  }
 
   CFFI> (progn
           (dotimes (i 3)
@@ -1812,7 +1813,10 @@ Examples
 
   (defcstruct struct-pair "Example pair from test suite" ((x :int) (y :int)))
 
-  $cffi->defcstruct( \$struct_pair, "Example pair from test suite", [ [ x => ':int' ], [ y => ':int' ] ] );
+  $cffi->defcstruct(
+           \$struct_pair, "Example pair from test suite",
+           [ [ x => $JGoff::Lisp::CFFI::int ],
+             [ y => $JGoff::Lisp::CFFI::int ] ] );
 
   CFFI> (foreign-alloc '(:struct struct-pair))
   => nil
@@ -1869,7 +1873,7 @@ Examples
   => "No such file or directory"
 
   is( $cffi->foreign_funcall_pointer(
-        $last, [ ], ':int' => $cffi->mem_ref( $llast, ':int' ), ':string' ),
+        $last, [ ], $JGoff::Lisp::CFFI::int => $cffi->mem_ref( $llast, $JGoff::Lisp::CFFI::int ), $JGoff::Lisp::CFFI::string ),
     "No such file or directory" );
 
   CFFI> (foreign-symbol-pointer "nonexistent symbol")
@@ -2172,12 +2176,12 @@ Examples
   CFFI> (setq ptr-to-int (foreign-alloc :int))
   => #<A Mac Pointer #x1047D0>
 
-  $ptr_to_int = $cffi->foreign_alloc( ':int' );
+  $ptr_to_int = $cffi->foreign_alloc( $JGoff::Lisp::CFFI::int );
 
   CFFI> (mem-ref ptr-to-int :int)
   => 1054619
 
-  is( $cffi->mem_ref( $ptr_to_int, ':int' ),
+  is( $cffi->mem_ref( $ptr_to_int, $JGoff::Lisp::CFFI::int ),
       1054619 );
 
   CFFI> (setf (mem-ref ptr-to-int :int) 1984)
@@ -2186,7 +2190,7 @@ Examples
   CFFI> (mem-ref ptr-to-int :int)
   => 1984
 
-  is( $cffi->mem_ref( $ptr_to_int, ':int' ),
+  is( $cffi->mem_ref( $ptr_to_int, $JGoff::Lisp::CFFI::int ),
       1984 );
 
 =cut

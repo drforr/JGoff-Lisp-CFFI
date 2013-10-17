@@ -706,6 +706,11 @@ $cffi->defcallback( lisp_strcat => $JGoff::Lisp::CFFI::string,
 (defcallback return-a-string-not-nil :string ()
   "abc")
 
+$cffi->defcallback(
+         return_a_string_not_nil => $JGoff::Lisp::CFFI::string, [ ], sub {
+  "abc"
+} );
+
 #-cffi-sys::no-foreign-funcall
 (deftest callbacks.string-not-docstring
     (foreign-funcall-pointer (callback return-a-string-not-nil) () :string)
@@ -1173,9 +1178,12 @@ $cffi->defcfun( call_sum_127_no_ll => ':long', [ cb => $JGoff::Lisp::CFFI::point
 ;;; Tests calling standard C library functions both passing
 ;;; and returning each built-in type. (adapted from funcall.lisp)
 
-(defcfun "toupper" :char
-  "toupper docstring"
-  (char :char))
+#(defcfun "toupper" :char
+#  "toupper docstring"
+#  (char :char))
+
+$cffi->defcfun( toupper => $JGoff::Lisp::CFFI::char, "toupper docstring",
+                [ char => $JGoff::Lisp::CFFI::char ] );
 
 (deftest defcfun.char
     (toupper (char-code #\a))
