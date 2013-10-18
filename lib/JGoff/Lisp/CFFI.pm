@@ -15,41 +15,55 @@ use JGoff::Lisp::CFFI::ForeignLibrary;
 use JGoff::Lisp::CFFI::ForeignLibraryDesignator;
 use JGoff::Lisp::CFFI::ForeignPointer;
 
-use JGoff::Lisp::CFFI::CoreType;
+use JGoff::Lisp::CFFI::Type;
 
 our $boolean =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':char', size => 1 );
+  JGoff::Lisp::CFFI::Type->new( name => ':char', size => 1 );
 our $char =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':char', size => 1 );
+  JGoff::Lisp::CFFI::Type->new( name => ':char', size => 1 );
 our $unsigned_char =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':unsigned-char', size => 1 );
+  JGoff::Lisp::CFFI::Type->new( name => ':unsigned-char', size => 1 );
+our $uchar =
+  JGoff::Lisp::CFFI::Type->new( name => ':uchar', size => 1 );
 our $int =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':int', size => 2 );
+  JGoff::Lisp::CFFI::Type->new( name => ':int', size => 2 );
 our $unsigned_int =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':unsigned-int', size => 2 );
+  JGoff::Lisp::CFFI::Type->new( name => ':unsigned-int', size => 2 );
+our $uint =
+  JGoff::Lisp::CFFI::Type->new( name => ':uint', size => 2 );
+our $uint16 =
+  JGoff::Lisp::CFFI::Type->new( name => ':uint16', size => 2 );
 our $short =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':short', size => 2 );
+  JGoff::Lisp::CFFI::Type->new( name => ':short', size => 2 );
 our $unsigned_short =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':unsigned-short', size => 2 );
+  JGoff::Lisp::CFFI::Type->new( name => ':unsigned-short', size => 2 );
+our $ushort =
+  JGoff::Lisp::CFFI::Type->new( name => ':ushort', size => 2 );
 our $long =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':long', size => 4 );
+  JGoff::Lisp::CFFI::Type->new( name => ':long', size => 4 );
 our $unsigned_long =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':unsigned-long', size => 4 );
+  JGoff::Lisp::CFFI::Type->new( name => ':unsigned-long', size => 4 );
+our $ulong =
+  JGoff::Lisp::CFFI::Type->new( name => ':ulong', size => 4 );
+our $uint32 =
+  JGoff::Lisp::CFFI::Type->new( name => ':uint32', size => 4 );
 our $float =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':float', size => 8 );
+  JGoff::Lisp::CFFI::Type->new( name => ':float', size => 8 );
 our $double =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':double', size => 10 );
+  JGoff::Lisp::CFFI::Type->new( name => ':double', size => 10 );
 our $long_double =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':long-double', size => 20 );
+  JGoff::Lisp::CFFI::Type->new( name => ':long-double', size => 20 );
 our $long_long =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':long-long', size => 8 );
+  JGoff::Lisp::CFFI::Type->new( name => ':long-long', size => 8 );
 our $unsigned_long_long =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':unsigned-long-long', size => 8 );
+  JGoff::Lisp::CFFI::Type->new( name => ':unsigned-long-long', size => 8 );
+our $ulong_long =
+  JGoff::Lisp::CFFI::Type->new( name => ':ulong-long', size => 8 );
 
 our $string =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':string', size => 0 );
+  JGoff::Lisp::CFFI::Type->new( name => ':string', size => 0 );
 our $pointer =
-  JGoff::Lisp::CFFI::CoreType->new( name => ':pointer', size => 4 );
+  JGoff::Lisp::CFFI::Type->new( name => ':pointer', size => 4 );
 
 #
 # with-foreign-object is a wrapper around with-foreign-pointer.
@@ -139,8 +153,8 @@ Perhaps a little code snippet.
     # (libtest2 :type :test) list that'll go away.
     #
     $cffi->define_foreign_library( \$libcurl,
-        [ ':unix' => [ ':or' => 'libcurl.so.3', 'libcurl.so' ] ],
-        [ __default__ => [ ':default' => 'libcurl' ] ] ); 
+      [ ':unix' => [ ':or' => 'libcurl.so.3', 'libcurl.so' ] ],
+      [ __default__ => [ ':default' => 'libcurl' ] ] ); 
     $cffi->use_foreign_library( $libcurl );
 
     #
@@ -178,26 +192,25 @@ Description
   Its behavior is better described under translate-from-foreign's documentation.
 
 Examples
-  CFFI-USER> (convert-to-foreign "a boat" :string)
-  => #<FOREIGN-ADDRESS #x097ACDC0>
-  => T
+  #CFFI-USER> (convert-to-foreign "a boat" :string)
+  #=> #<FOREIGN-ADDRESS #x097ACDC0>
+  #=> T
 
-  ( $last, $result ) =
-    convert_to_foreign( 'a boat', $JGoff::Lisp::CFFI::string );
-  isa_ok( $last, 'Foreign::Address' );
-  is( $result, 1 );
+  @x = $cffi->convert_to_foreign( "a boat", $JGoff::Lisp::CFFI::string );
+  isa_ok( $x[0], 'JGoff::Lisp::CFFI::ForeignAddress' );
+  ok( $x[1] );
 
-  CFFI-USER> (convert-from-foreign * :string)
-  => "a boat"
+  #CFFI-USER> (convert-from-foreign * :string)
+  #=> "a boat"
 
-  is( convert_from_foreign( $last, $JGoff::Lisp::CFFI::string ),
-      'a boat' );
+  $x = $cffi->convert_from_foreign( $x[0], $JGoff::Lisp::CFFI::string );
+  is( $x, "a boat" );
 
 =cut
 
 method convert_from_foreign(
          JGoff::Lisp::CFFI::ForeignAddress $foreign_value,
-         JGoff::Lisp::CFFI::CoreType $type ) {
+         JGoff::Lisp::CFFI::Type $type ) {
   my ( $object );
   $object = $foreign_value->object;
 
@@ -231,29 +244,28 @@ Description
   Its behavior is better described under translate-to-foreign's documentation.
 
 Examples
-  CFFI-USER> (convert-to-foreign t :boolean)
-  => 1
-  => NIL
+  #CFFI-USER> (convert-to-foreign t :boolean)
+  #=> 1
+  #=> NIL
 
-  # XXX no real 'bool' type, prove the point with '2.1' here.
-  ( $value, $type ) = convert_to_foreign( 2.1, $JGoff::Lisp::CFFI::boolean );
-  is( $value, 1 );
-  nok( $type );
+  ( $x, $y ) = $cffi->convert_to_foreign( 1, $JGoff::Lisp::CFFI::boolean );
+  is( $x, 1 );
+  is( $y, undef );
 
-  CFFI-USER> (convert-to-foreign "hello, world" :string)
-  => #<FOREIGN-ADDRESS #x097C5F80>
-  => T
+  #CFFI-USER> (convert-to-foreign "hello, world" :string)
+  #=> #<FOREIGN-ADDRESS #x097C5F80>
+  #=> T
 
-  ( $last, $type ) =
-    convert_to_foreign( 'hello, world', $JGoff::Lisp::CFFI::string );
-  isa_ok( $last, 'Foreign::Address' );
-  ok( $type );
+  ( $last, $y ) =
+    $cffi->convert_to_foreign( "hello, world", $JGoff::Lisp::CFFI::string );
+  isa_ok( $x, 'JGoff::Lisp::CFFI::ForeignAddress' );
+  is( $last, 1 );
 
-  CFFI-USER> (code-char (mem-aref * :char 5))
-  => #\,
+  #CFFI-USER> (code-char (mem-aref * :char 5))
+  #=> #\,
 
-  is( code_char( $cffi->mem_aref( $last, $JGoff::Lisp::CFFI::char, 5 ) ),
-      ',' );
+  $x = chr( $cffi->mem_aref( $last, $JGoff::Lisp::CFFI::char, 5 ) );
+  is( $x, ',' );
 
 =cut
 
@@ -261,7 +273,7 @@ Examples
 #
 method convert_to_foreign(
          $object,
-         JGoff::Lisp::CFFI::CoreType $type ) {
+         JGoff::Lisp::CFFI::Type $type ) {
   my ( $foreign_value, $alloc_params );
   $foreign_value =
     JGoff::Lisp::CFFI::ForeignAddress->new( object => $object );
@@ -321,41 +333,36 @@ Examples
     ':append',
     [ ':creat' => 0x200 ] );
    
-  CFFI> (foreign-bitfield-symbols 'open-flags #b1101)
-  => (:RDONLY :WRONLY :NONBLOCK :APPEND)
+  #CFFI> (foreign-bitfield-symbols 'open-flags #b1101)
+  #=> (:RDONLY :WRONLY :NONBLOCK :APPEND)
 
-  # XXX case sensitivity here?
+  @x = $cffi->foreign_bitfield_symbols( $open_flags, 0b1101 );
   is_deeply(
-    [ $cffi->foreign_bitfield_symbols( $open_flags, 0b1101 ) ],
-    [ ':rdonly', ':wronly', ':nonblock', ':append' ] );
-   
-  CFFI> (foreign-bitfield-value 'open-flags '(:rdwr :creat))
-  => 514   ; #x0202
+    [ @x ],
+    [ ':RDONLY', ':WRONLY', ':NONBLOCK', ':APPEND' ]
+  );
 
-  is( foreign_bitfield_value( $open_flags, [ ':rdwr', ':creat' ] ),
-      0x0202 );
-   
-  (defcfun ("open" unix-open) :int
-    (path :string)
-    (flags open-flags)
-    (mode :uint16)) ; unportable
+  #CFFI> (foreign-bitfield-value 'open-flags '(:rdwr :creat))
+  #=> 514   ; #x0202
 
-  # There's already a 'open', so inject stdio's open() as 'unix_open'.
-  # Also, as a nicety translate '-' => '_'
-  #
-  $cffi->defcfun( [ open => 'unix-open' ] => $JGoff::Lisp::CFFI::int,
+  $x = $cffi->foreign_bitfield_value( $open_flags, [ ':rdwr', ':creat' ] );
+  is( $x, 514 );
+
+  #(defcfun ("open" unix-open) :int
+  #  (path :string)
+  #  (flags open-flags)
+  #  (mode :uint16)) ; unportable
+
+  $cffi->defcfun( [ open => "unix-open" ] => $JGoff::Lisp::CFFI::int,
     [ path => $JGoff::Lisp::CFFI::string ],
     [ flags => $open_flags ],
     [ mode => $JGoff::Lisp::CFFI::uint16 ] );
-   
-  CFFI> (unix-open "/tmp/foo" '(:wronly :creat) #o644)
-  => #<an fd>
 
-  unix_open( '/tmp/foo', [ ':wronly', ':creat' ], 0644 );
-   
-  ;;; Consider also the following lispier wrapper around open()
-  (defun lispier-open (path mode &rest flags)
-    (unix-open path flags mode))
+  #CFFI> (unix-open "/tmp/foo" '(:wronly :creat) #o644)
+  #=> #<an fd>
+
+  $x = unix_open( "/tmp/foo", [ ':wronly', ':creat' ], 0044 );
+  isa_ok( $x, 'IO::File' );
 
 =cut
 
@@ -439,10 +446,10 @@ Aggregate
   The use of CLOS terminology for the structure-related features is intentional; structure definitions are very much like classes with (far) fewer features.
 
 Examples
-  (defcstruct point
-    "Point structure."
-    (x :int)
-    (y :int))
+  #(defcstruct point
+  #  "Point structure."
+  #  (x :int)
+  #  (y :int))
 
   $cffi->defcstruct( \$point,
     "Point structure.",
@@ -458,42 +465,54 @@ Examples
             (list x y)))
   => (42 42)
 
-  ;; Using the :size and :offset options to define a partial structure.
-  ;; (this is useful when you are interested in only a few slots
-  ;; of a big foreign structure)
-   
-  (defcstruct (foo :size 32)
-    "Some struct with 32 bytes."
-                          ; <16 bytes we don't care about>
-    (x :int :offset 16)   ; an int at offset 16
-    (y :int)              ; another int at offset 16+sizeof(int)
-                          ; <a couple more bytes we don't care about>
-    (z :char :offset 24)) ; a char at offset 24
-                          ; <7 more bytes ignored (since size is 32)>
+  @x = $cffi->with_foreign_object( [ \$ptr, $point ], sub {
+    $cffi->foreign_slot_value( $ptr, $point, 'x', 42 );
+    $cffi->foreign_slot_value( $ptr, $point, 'y', 42 );
+    $cffi->with_foreign_slot( [ [ 'x', 'y' ], $ptr, $point ], sub {
+      ( $_{x}, $_{y} );
+    } );
+  } );
+  is_deeply(
+    [ @x ],
+    [ 42, 42 ]
+  );
 
-  $cffi->defcstruct( \$foo,
-    [ ':size' => 32 ],
+  # Using the :size and :offset options to define a partial structure.
+  # (this is useful when you are interested in only a few slots
+  # of a big foreign structure)
+   
+  #(defcstruct (foo :size 32)
+  #  "Some struct with 32 bytes."
+  #                        ; <16 bytes we don't care about>
+  #  (x :int :offset 16)   ; an int at offset 16
+  #  (y :int)              ; another int at offset 16+sizeof(int)
+  #                        ; <a couple more bytes we don't care about>
+  #  (z :char :offset 24)) ; a char at offset 24
+  #                        ; <7 more bytes ignored (since size is 32)>
+
+  $cffi->defcstruct( \$foo => [ ':size' => 32 ],
     "Some struct with 32 bytes.",
-    [ 'x' => $JGoff::Lisp::CFFI::int, ':offset' => 16 ],
-    [ 'y' => $JGoff::Lisp::CFFI::int ],
-    [ 'z' => $JGoff::Lisp::CFFI::char', ':offset' => 24 ] );
+    [ 'x' => $JGoff::Lisp::CFFI::int,  ':offset' => 16 ],
+    [ 'y' => $JGoff::Lisp::CFFI::int                   ],
+    [ 'z' => $JGoff::Lisp::CFFI::char, ':offset' => 24 ] );
    
-  CFFI> (foreign-type-size 'foo)
-  => 32
+  #CFFI> (foreign-type-size 'foo)
+  #=> 32
 
-  is( $cffi->foreign_type_size( $foo ), 32 );
+  $x = $cffi->foreign_type_size( $foo );
+  is( $x, 32 );
 
-  (defcstruct cv-size
-    (width :int)
-    (height :int))
+  #(defcstruct cv-size
+  #  (width :int)
+  #  (height :int))
 
   $cffi->defstruct( \$cv_size,
     [ 'width'  => $JGoff::Lisp::CFFI::int ],
     [ 'height' => $JGoff::Lisp::CFFI::int ] );
 
-  ;;; Using :count to define arrays inside of a struct.
-  (defcstruct video_tuner
-    (name :char :count 32))
+  #;;; Using :count to define arrays inside of a struct.
+  #(defcstruct video_tuner
+  #  (name :char :count 32))
 
   $cffi->defcstruct( \$video_tuner,
     [ 'name' => $JGoff::Lisp::CFFI::char, ':count' => 32 ] );
@@ -557,13 +576,13 @@ Description
   A union is a structure in which all slots have an offset of zero. It is isomorphic to the C union. Therefore, you should use the usual foreign structure operations for accessing a union's slots.
 
 Examples
-  (defcunion uint32-bytes
-    (int-value :unsigned-int)
-    (bytes :unsigned-char :count 4))
+  #(defcunion uint32-bytes
+  #  (int-value :unsigned-int)
+  #  (bytes :unsigned-char :count 4))
 
-  $uint32_bytes = $cffi->defcunion(
-    [ 'int_value' => $JGoff::Lisp::CFFI::unsigned_int ],
-    [ 'bytes' => $JGoff::Lisp::CFFI::unsigned_int, ':count' => 4 ] );
+  $cffi->defcunion( \$uint32_bytes,
+    [ int_value => $JGoff::Lisp::CFFI::unsigned_int                ],
+    [ bytes     => $JGoff::Lisp::CFFI::unsigned_int, ':count' => 4 ] );
 
 =cut
 
@@ -600,16 +619,17 @@ Description
   The defctype macro provides a mechanism similar to C's typedef to define new types. The new type inherits base-type's translators, if any. There is no way to define translations for types defined with defctype. For that, you should use define-foreign-type.
 
 Examples
-  (defctype my-string :string
-    "My own string type.")
+  #(defctype my-string :string
+  #  "My own string type.")
 
   $cffi->defctype( \$my_string => $JGoff::Lisp::CFFI::string,
     'My own string type.' );
    
-  (defctype long-bools (:boolean :long)
-    "Booleans that map to C longs.")
+  #(defctype long-bools (:boolean :long)
+  #  "Booleans that map to C longs.")
 
-  $cffi->defctype( \$long_bools => [ $JGoff::Lisp::CFFI::boolean, $JGoff::Lisp::CFFI::long ],
+  $cffi->defctype( \$long_bools =>
+                     [ $JGoff::Lisp::CFFI::boolean, $JGoff::Lisp::CFFI::long ],
     'Booleans that map to C longs' );
 
 =cut
@@ -658,33 +678,35 @@ Description
   Types defined with defcenum canonicalize to base-type which is :int by default.
 
 Examples
-  (defcenum boolean
-    :no
-    :yes)
+  #(defcenum boolean
+  #  :no
+  #  :yes)
 
   $cffi->defcenum( \$boolean,
     ':no',
     ':yes' );
    
-  CFFI> (foreign-enum-value 'boolean :no)
-  => 0
+  #CFFI> (foreign-enum-value 'boolean :no)
+  #=> 0
 
-  is( $cffi->foreign_enum_value( $boolean, ':no' ), 0 );
+  $x = $cffi->foreign_enum_value( $boolean, ':no' );
+  is( $x, 0 );
 
-  (defcenum numbers
-    (:one 1)
-    :two
-    (:four 4))
+  #(defcenum numbers
+  #  (:one 1)
+  #  :two
+  #  (:four 4))
 
   $cffi->defcenum( \$numbers,
     [ ':one' => 1 ],
     ':two',
     [ ':four' => 4 ] );
    
-  CFFI> (foreign-enum-keyword 'numbers 2)
-  => :TWO
+  #CFFI> (foreign-enum-keyword 'numbers 2)
+  #=> :TWO
 
-  is( $cffi->foreign_enum_keyword( $numbers, 2 ), ':TWO' );
+  $x = $cffi->foreign_enum_keyword( $numbers, 2 );
+  is( $x, ':TWO' );
 
 =cut
 
@@ -751,17 +773,19 @@ Examples
         :unsigned-int
         :long
         :unsigned-long) base-type)))
-   
-  CFFI> (canonicalize-foreign-type :boolean)
-  => :INT
 
-  is( $cffi->canonicalize_foreign_type( $JGoff::Lisp::CFFI::boolean ), ':INT' );
+  #CFFI> (canonicalize-foreign-type :boolean)
+  #=> :INT
 
-  CFFI> (canonicalize-foreign-type '(:boolean :long))
-  => :LONG
+  $x = $cffi->canonicalize_foreign_type( $JGoff::Lisp::CFFI::boolean );
+  is( $x, ':INT' );
 
-  is( $cffi->canonicalize_foreign_type(
-        [ $JGoff::Lisp::CFFI::boolean, $JGoff::Lisp::CFFI::long ] ), ':LONG' );
+  #CFFI> (canonicalize-foreign-type '(:boolean :long))
+  #=> :LONG
+
+  $x = $cffi->canonicalize_foreign_type(
+    [ $JGoff::Lisp::CFFI::boolean, $JGoff::Lisp::CFFI::long ] );
+  is( $x, ':LONG' );
 
   CFFI> (canonicalize-foreign-type '(:boolean :float))
   ;; error--> signalled by ECASE.
@@ -807,19 +831,21 @@ Examples
         :long
         :unsigned-long) base-type)))
    
-  CFFI> (canonicalize-foreign-type :boolean)
-  => :INT
+  #CFFI> (canonicalize-foreign-type :boolean)
+  #=> :INT
 
-  is( $cffi->canonicalize_foreign_type( $JGoff::Lisp::CFFI::boolean ), ':INT' );
+  $x = $cffi->canonicalize_foreign_type( $JGoff::Lisp::CFFI::boolean );
+  is( $x, ':INT' );
 
   CFFI> (canonicalize-foreign-type '(:boolean :long))
   => :LONG
 
-  is( $cffi->canonicalize_foreign_type(
-        [ $JGoff::Lisp::CFFI::boolean, $JGoff::Lisp::CFFI::long ] ), ':LONG' );
+  $x = $cffi->canonicalize_foreign_type(
+    [ $JGoff::Lisp::CFFI::boolean, $JGoff::Lisp::CFFI::long ] );
+  is( $x, ':LONG' );
 
-  CFFI> (canonicalize-foreign-type '(:boolean :float))
-  ;; error--> signalled by ECASE.
+  #CFFI> (canonicalize-foreign-type '(:boolean :float))
+  #;; error--> signalled by ECASE.
 
 =cut
 
@@ -851,21 +877,24 @@ Description
   The function foreign-bitfield-symbols returns a possibly shared list of symbols that correspond to value in type.
 
 Examples
-  (defbitfield flags
-    (flag-a 1)
-    (flag-b 2)
-    (flag-c 4))
+  #(defbitfield flags
+  #  (flag-a 1)
+  #  (flag-b 2)
+  #  (flag-c 4))
 
   $cffi->defbitfield( \$flags,
     [ 'flag-a' => 1 ],
     [ 'flag-b' => 2 ],
     [ 'flag-c' => 4 ] );
    
-  CFFI> (foreign-bitfield-symbols 'boolean #b101)
-  => (FLAG-A FLAG-C)
+  #CFFI> (foreign-bitfield-symbols 'boolean #b101)
+  #=> (FLAG-A FLAG-C)
 
-  is_deeply( [ $cffi->foreign_bitfield_symbols( $boolean, 0b101 ) ],
-             [ 'FLAG-A', 'FLAG-C' ] );
+  @x = $cffi->foreign_bitfield_symbols( $JGoff::Lisp::CFFI::boolean, 0b101 );
+  is_deeply(
+    [ @x ],
+    [ 'FLAG-A', 'FLAG-C' ]
+  );
 
 =cut
 
@@ -907,21 +936,21 @@ Description
   The function foreign-bitfield-value returns the value that corresponds to the symbols in the symbols list.
 
 Examples
-  (defbitfield flags
-    (flag-a 1)
-    (flag-b 2)
-    (flag-c 4))
+  #(defbitfield flags
+  #  (flag-a 1)
+  #  (flag-b 2)
+  #  (flag-c 4))
 
   $cffi->defbitfield( \$flags,
     [ 'flag-a' => 1 ],
     [ 'flag-b' => 2 ],
     [ 'flag-c' => 4 ] );
    
-  CFFI> (foreign-bitfield-value 'flags '(flag-a flag-c))
-  => 5  ; #b101
+  #CFFI> (foreign-bitfield-value 'flags '(flag-a flag-c))
+  #=> 5  ; #b101
 
-  is( $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] ),
-      0b101 );
+  $x = $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] );
+  is( $x, 0b101 );
 
 =cut
 
@@ -963,19 +992,20 @@ Description
   An error is signaled if type doesn't contain such value and errorp is true.
 
 Examples
-  (defcenum boolean
-    :no
-    :yes)
+  #(defcenum boolean
+  #  :no
+  #  :yes)
 
   $cffi->defcenum( \$boolean,
     ':no',
     ':yes'
   );
    
-  CFFI> (foreign-enum-keyword 'boolean 1)
-  => :YES
+  #CFFI> (foreign-enum-keyword 'boolean 1)
+  #=> :YES
 
-  is( $cffi->foreign_enum_keyword( $boolean, 1 ), ':YES' );
+  $x = $cffi->foreign_enum_keyword( $boolean, 1 );
+  is( $x, ':YES' );
 
 =cut
 
@@ -1013,18 +1043,19 @@ Description
   An error is signaled if type doesn't contain such keyword, and errorp is true.
 
 Examples
-  (defcenum boolean
-    :no
-    :yes)
+  #(defcenum boolean
+  #  :no
+  #  :yes)
 
   $cffi->defcenum( \$boolean,
     ':no',
     ':yes' );
    
-  CFFI> (foreign-enum-value 'boolean :yes)
-  => 1
+  #CFFI> (foreign-enum-value 'boolean :yes)
+  #=> 1
 
-  is_deeply( $cffi->foreign_enum_value( $boolean, ':yes' ), 1 );
+  $x = $cffi->foreign_enum_value( $boolean, ':yes' );
+  is( $x, 1 );
 
 =cut
 
@@ -1058,20 +1089,22 @@ Description
   The function foreign-slot-names returns a potentially shared list of slot names for the given structure type. This list has no particular order.
 
 Examples
-  (defcstruct timeval
-    (tv-secs :long)
-    (tv-usecs :long))
+  #(defcstruct timeval
+  #  (tv-secs :long)
+  #  (tv-usecs :long))
 
   $cffi->defcstruct( \$timeval,
     [ 'tv-secs'  => $JGoff::Lisp::CFFI::long ],
     [ 'tv-usecs' => $JGoff::Lisp::CFFI::long ] );
    
-  CFFI> (foreign-slot-names '(:struct timeval))
-  => (TV-SECS TV-USECS)
+  #CFFI> (foreign-slot-names '(:struct timeval))
+  #=> (TV-SECS TV-USECS)
 
+  @x = $cffi->foreign_slot_names( [ ':struct' => $timeval ] );
   is_deeply(
-    [ $cffi->foreign_slot_names( $timeval ) ],
-    [ 'TV-SECS', 'TV-USECS' ] );
+    [ @x ],
+    [ 'TV-SECS', 'TV-USECS' ]
+  );
 
 =cut
 
@@ -1106,23 +1139,25 @@ Description
   The function foreign-slot-offset returns the offset in bytes of a slot in a foreign struct type.
 
 Examples
-  (defcstruct timeval
-    (tv-secs :long)
-    (tv-usecs :long))
+  #(defcstruct timeval
+  #  (tv-secs :long)
+  #  (tv-usecs :long))
 
   $cffi->defcstruct( \$timeval,
     [ 'tv-secs'  => $JGoff::Lisp::CFFI::long ],
     [ 'tv-usecs' => $JGoff::Lisp::CFFI::long ] );
    
-  CFFI> (foreign-slot-offset '(:struct timeval) 'tv-secs)
-  => 0
+  #CFFI> (foreign-slot-offset '(:struct timeval) 'tv-secs)
+  #=> 0
 
-  is( $cffi->foreign_slot_offset( $timeval, 'tv-secs' ), 0 );
+  $x = $cffi->foreign_slot_offset( [ ':struct' => $timeval ], 'tv-secs' );
+  is( $x, 0 );
 
-  CFFI> (foreign-slot-offset '(:struct timeval) 'tv-usecs)
-  => 4
+  #CFFI> (foreign-slot-offset '(:struct timeval) 'tv-usecs)
+  #=> 4
 
-  is( $cffi->foreign_slot_offset( $timeval, 'tv-usecs' ), 4 );
+  $x = $cffi->foreign_slot_offset( [ ':struct' => $timeval ], 'tv-usecs' );
+  is( $x, 4 );
 
 =cut
 
@@ -1167,20 +1202,24 @@ Description
   For aggregate slots, this is the same value returned by foreign-slot-value.
 
 Examples
-  (defcstruct point
-    "Pointer structure."
-    (x :int)
-    (y :int))
+  #(defcstruct point
+  #  "Pointer structure."
+  #  (x :int)
+  #  (y :int))
 
   $cffi->defcstruct( \$point,
     "Pointer structure.",
     [ 'x' => $JGoff::Lisp::CFFI::int ],
     [ 'y' => $JGoff::Lisp::CFFI::int ] );
    
-  CFFI> (with-foreign-object (ptr '(:struct point))
-          (foreign-slot-pointer ptr '(:struct point) 'x))
-  => #<FOREIGN-ADDRESS #xBFFF6E60>
-  ;; Note: the exact pointer representation varies from lisp to lisp.
+  #CFFI> (with-foreign-object (ptr '(:struct point))
+  #        (foreign-slot-pointer ptr '(:struct point) 'x))
+  #=> #<FOREIGN-ADDRESS #xBFFF6E60>
+  #;; Note: the exact pointer representation varies from lisp to lisp.
+
+  $x = $cffi->with_foreign_object( [ \$ptr => [ ':struct', $point ] ], sub {
+    $cffi->foreign_slot_pointer( $ptr => [ ':struct' => $point ], 'x' );
+  } );
 
 =cut
 
@@ -1223,24 +1262,33 @@ Description
   There are compiler macros for foreign-slot-value and its setf expansion that open code the memory access when type and slot-names are constant at compile-time.
 
 Examples
-  (defcstruct point
-    "Pointer structure."
-    (x :int)
-    (y :int))
+  #(defcstruct point
+  #  "Pointer structure."
+  #  (x :int)
+  #  (y :int))
 
   $cffi->defcstruct( \$point,
     "Pointer structure.",
     [ 'x' => $JGoff::Lisp::CFFI::int ],
     [ 'y' => $JGoff::Lisp::CFFI::int ] );
    
-  CFFI> (with-foreign-object (ptr '(:struct point))
-          ;; Initialize the slots
-          (setf (foreign-slot-value ptr '(:struct point) 'x) 42
-                (foreign-slot-value ptr '(:struct point) 'y) 42)
-          ;; Return a list with the coordinates
-          (with-foreign-slots ((x y) ptr (:struct point))
-            (list x y)))
-  => (42 42)
+  #CFFI> (with-foreign-object (ptr '(:struct point))
+  #        ;; Initialize the slots
+  #        (setf (foreign-slot-value ptr '(:struct point) 'x) 42
+  #              (foreign-slot-value ptr '(:struct point) 'y) 42)
+  #        ;; Return a list with the coordinates
+  #        (with-foreign-slots ((x y) ptr (:struct point))
+  #          (list x y)))
+  #=> (42 42)
+
+  @x = $cffi->with_foreign_object( [ $ptr => [ ':struct' => $point ] ], sub {
+    $cffi->foreign_slot_value( $ptr, [ ':struct', $point ], 'x', 42 );
+    $cffi->foreign_slot_value( $ptr, [ ':struct', $point ], 'y', 42 );
+    $cffi->with_foreign_slots(
+      [ 'x', 'y' ], $ptr, [ ':struct' => $point ], sub {
+      ( $_{x}, $_{y} );
+    } );
+  } );
 
 =cut
 
@@ -1275,31 +1323,35 @@ Description
   The function foreign-type-alignment returns the alignment of type in bytes.
 
 Examples
-  CFFI> (foreign-type-alignment :char)
-  => 1
+  #CFFI> (foreign-type-alignment :char)
+  #=> 1
 
-  is( $cffi->foreign_type_alignment( $JGoff::Lisp::CFFI::char ), 1 );
+  $x = $cffi->foreign_type_alignment( $JGoff::Lisp::CFFI::char );
+  is( $x, 1 );
 
-  CFFI> (foreign-type-alignment :short)
-  => 2
+  #CFFI> (foreign-type-alignment :short)
+  #=> 2
 
-  is( $cffi->foreign_type_alignment( $JGoff::Lisp::CFFI::short ), 2 );
+  $x = $cffi->foreign_type_alignment( $JGoff::Lisp::CFFI::short );
+  is( $x, 2 );
 
-  CFFI> (foreign-type-alignment :int)
-  => 4
+  #CFFI> (foreign-type-alignment :int)
+  #=> 4
 
-  is( $cffi->foreign_type_alignment( $JGoff::Lisp::CFFI::int ), 4 );
+  $x = $cffi->foreign_type_alignment( $JGoff::Lisp::CFFI::int );
+  is( $x, 4 );
 
-  (defcstruct foo
-    (a :char))
+  #(defcstruct foo
+  #  (a :char))
 
   $cffi->defcstruct( \$foo,
     [ 'a' => $JGoff::Lisp::CFFI::char ] );
    
-  CFFI> (foreign-type-alignment '(:struct foo))
-  => 1
+  #CFFI> (foreign-type-alignment '(:struct foo))
+  #=> 1
 
-  is( $cffi->foreign_type_alignment( $foo ), 1 );
+  $x = $cffi->foreign_type_alignment( [ ':struct' => $foo ] );
+  is( $x, 1 );
 
 =cut
 
@@ -1329,28 +1381,31 @@ Description
   The function foreign-type-size return the size of type in bytes. This includes any padding within and following the in-memory representation as needed to create an array of type objects.
 
 Examples
-  (defcstruct foo
-    (a :double)
-    (c :char))
+  #(defcstruct foo
+  #  (a :double)
+  #  (c :char))
 
   $cffi->defcstruct( \$foo,
     [ 'a' => $JGoff::Lisp::CFFI::double ],
-    [ 'c' => $JGoff::Lisp::CFFI::char ] );
+    [ 'c' => $JGoff::Lisp::CFFI::char   ] );
    
-  CFFI> (foreign-type-size :double)
-  => 8
+  #CFFI> (foreign-type-size :double)
+  #=> 8
 
-  is( $cffi->foreign_type_size( $JGoff::Lisp::CFFI::double ), 8 );
+  $x = $cffi->foreign_type_size( $JGoff::Lisp::CFFI::double );
+  is( $x, 8 );
 
-  CFFI> (foreign-type-size :char)
-  => 1
+  #CFFI> (foreign-type-size :char)
+  #=> 1
 
-  is( $cffi->foreign_type_size( $JGoff::Lisp::CFFI::char ), 1 );
+  $x = $cffi->foreign_type_size( $JGoff::Lisp::CFFI::char );
+  is( $x, 1 );
 
-  CFFI> (foreign-type-size '(:struct foo))
-  => 16
+  #CFFI> (foreign-type-size '(:struct foo))
+  #=> 16
 
-  is( $cffi->foreign_type_size( $foo ), 16 );
+  $x = $cffi->foreign_type_size( [ ':struct' => $foo ] );
+  is( $x, 16 );
 
 =cut
 
@@ -1388,19 +1443,19 @@ Description
   Its behavior is better described under free-translated-object's documentation.
 
 Examples
-  CFFI-USER> (convert-to-foreign "a boat" :string)
-  => #<FOREIGN-ADDRESS #x097ACDC0>
-  => T
+  #CFFI-USER> (convert-to-foreign "a boat" :string)
+  #=> #<FOREIGN-ADDRESS #x097ACDC0>
+  #=> T
 
-  ( $last, $result ) =
-    convert_to_foreign( 'a boat', $JGoff::Lisp::CFFI::string );
-  isa_ok( $last, 'JGoff::Lisp::CFFI::ForeignAddress' );
-  is( $result, 1 );
+  @x = $cffi->convert-To_foreign( "a boat", $JGoff::Lisp::CFFI::string );
+  isa_ok( $x[0], 'JGoff::Lisp::CFFI::ForeignAddress' );
+  ok( $x[1] );
 
-  CFFI-USER> (free-converted-object * :string t)
-  => NIL
+  #CFFI-USER> (free-converted-object * :string t)
+  #=> NIL
 
-  nok( $cffi->free_converted_object( $last, $JGoff::Lisp::CFFI::string, 1 ) );
+  $x = $cffi->free_converted_object( $x[0], $JGoff::Lisp::CFFI::string, 1 );
+  nok( $x );
 
 =cut
 
@@ -1601,18 +1656,18 @@ Description
   The with-foreign-slots macro creates local symbol macros for each var in vars to reference foreign slots in ptr of type. It is similar to Common Lisp's with-slots macro.
 
 Examples
-  (defcstruct tm
-    (sec :int)
-    (min :int)
-    (hour :int)
-    (mday :int)
-    (mon  :int)
-    (year :int)
-    (wday :int)
-    (yday :int)
-    (isdst  :boolean)
-    (zone   :string)
-    (gmtoff :long))
+  #(defcstruct tm
+  #  (sec :int)
+  #  (min :int)
+  #  (hour :int)
+  #  (mday :int)
+  #  (mon  :int)
+  #  (year :int)
+  #  (wday :int)
+  #  (yday :int)
+  #  (isdst  :boolean)
+  #  (zone   :string)
+  #  (gmtoff :long))
 
   $cffi->defcstruct( \$tm,
     [ 'sec'    => $JGoff::Lisp::CFFI::int     ],
@@ -1627,11 +1682,18 @@ Examples
     [ 'zone'   => $JGoff::Lisp::CFFI::string  ],
     [ 'gmtoff' => $JGoff::Lisp::CFFI::long    ] );
    
-  CFFI> (with-foreign-object (time :int)
-          (setf (mem-ref time :int)
-                (foreign-funcall "time" :pointer (null-pointer) :int))
-          (foreign-funcall "gmtime" :pointer time (:pointer (:struct tm))))
-  => #<A Mac Pointer #x102A30>
+  #CFFI> (with-foreign-object (time :int)
+  #        (setf (mem-ref time :int)
+  #              (foreign-funcall "time" :pointer (null-pointer) :int))
+  #        (foreign-funcall "gmtime" :pointer time (:pointer (:struct tm))))
+  #=> #<A Mac Pointer #x102A30>
+
+  $x = $cffi->with_foreign_object( [ \$time => $JGoff::Lisp::CFFI::int ], sub {
+    $cffi->mem_ref( $time, ':int'
+      $cffi->foreign_funcall( 'time', $JGoff::Lisp::CFFI::pointer, $cffi->null_pointer, $JGoff::Lisp::CFFI::int );
+    $cffi->foreign_funcall( 'gmtime', $JGoff::Lisp::CFFI::pointer, $time, [ $JGoff::Lisp::CFFI::pointer, [ ':struct', $tm ] ] );
+  } );
+  isa_ok( $x, 'JGoff::Lisp::CFFI::ForeignAddress' );
 
   #
   # Since with-foreign-object is terribly non-perly, do this with its
@@ -1639,10 +1701,10 @@ Examples
   #
   $tm_obj = $cffi->foreign_alloc( $tm );
 
-  CFFI> (with-foreign-slots ((sec min hour mday mon year) * (:struct tm))
-          (format nil "~A:~A:~A, ~A/~A/~A"
-                  hour min sec (+ 1900 year) mon mday))
-  => "23:15:00, 2013/10/13"
+  #CFFI> (with-foreign-slots ((sec min hour mday mon year) * (:struct tm))
+  #        (format nil "~A:~A:~A, ~A/~A/~A"
+  #                hour min sec (+ 1900 year) mon mday))
+  #=> "23:15:00, 2013/10/13"
 
   is( $cffi->with_foreign_slots(
               [ 'sec', 'min', 'hour', 'mday', 'mon', 'year' ], $tm_obj, $tm,
