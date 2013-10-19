@@ -14,10 +14,8 @@ my $cffi = JGoff::Lisp::CFFI->new;
 { my $foreign =
     $cffi->convert_to_foreign( "a boat", $JGoff::Lisp::CFFI::string );
 
-  isa_ok(
-    $foreign,
-    'JGoff::Lisp::CFFI::ForeignAddress'
-  );
+  isa_ok( $foreign,
+          'JGoff::Lisp::CFFI::ForeignAddress' );
 }
 # }}}
 
@@ -25,10 +23,8 @@ my $cffi = JGoff::Lisp::CFFI->new;
 { my ( $params, $foreign ) =
     $cffi->convert_to_foreign( "a boat", $JGoff::Lisp::CFFI::string );
 
-  isa_ok(
-    $foreign,
-    'JGoff::Lisp::CFFI::ForeignAddress'
-  );
+  isa_ok( $foreign,
+          'JGoff::Lisp::CFFI::ForeignAddress' );
   is( $params, 2 );
 }
 # }}}
@@ -39,10 +35,8 @@ my $cffi = JGoff::Lisp::CFFI->new;
   my $object = $cffi->convert_from_foreign(
                  $foreign, $JGoff::Lisp::CFFI::string );
 
-  isa_ok(
-    $foreign,
-    'JGoff::Lisp::CFFI::ForeignAddress'
-  );
+  isa_ok( $foreign,
+          'JGoff::Lisp::CFFI::ForeignAddress' );
 }
 # }}}
 
@@ -51,22 +45,16 @@ my $cffi = JGoff::Lisp::CFFI->new;
   $cffi->defbitfield( \$flags,
     'flag-a',
     'flag-b',
-    'flag-c'
-  );
+    'flag-c' );
   isa_ok( $flags, 'JGoff::Lisp::CFFI::ForeignBitfield' );
 
   my $test_bitfield_symbols = [
-    $cffi->foreign_bitfield_symbols( $flags, 0b101 )
-  ];
-  is_deeply(
-    $test_bitfield_symbols,
-    [ 'FLAG-A', 'FLAG-C' ]
-  );
+    $cffi->foreign_bitfield_symbols( $flags, 0b101 ) ];
+  is_deeply( $test_bitfield_symbols,
+             [ 'FLAG-A', 'FLAG-C' ] );
 
-  is(
-    $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] ),
-    0b101
-  );
+  is( $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] ),
+      0b101 );
 }
 # }}}
 
@@ -75,22 +63,16 @@ my $cffi = JGoff::Lisp::CFFI->new;
   $cffi->defbitfield( \$flags,
     [ 'flag-a' => 2 ],
     'flag-b',
-    'flag-c'
-  );
+    'flag-c' );
   isa_ok( $flags, 'JGoff::Lisp::CFFI::ForeignBitfield' );
 
   my $test_bitfield_symbols = [
-    $cffi->foreign_bitfield_symbols( $flags, 0b1010 )
-  ];
-  is_deeply(
-    $test_bitfield_symbols,
-    [ 'FLAG-A', 'FLAG-C' ]
-  );
+    $cffi->foreign_bitfield_symbols( $flags, 0b1010 ) ];
+  is_deeply( $test_bitfield_symbols,
+             [ 'FLAG-A', 'FLAG-C' ] );
 
-  is(
-    $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] ),
-    0b1010
-  );
+  is( $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] ),
+      0b1010 );
 }
 # }}}
 
@@ -99,22 +81,16 @@ my $cffi = JGoff::Lisp::CFFI->new;
   $cffi->defbitfield( \$flags,
     [ 'flag-a' => 2 ],
     'flag-b',
-    [ 'flag-c' => 16 ]
-  );
+    [ 'flag-c' => 16 ] );
   isa_ok( $flags, 'JGoff::Lisp::CFFI::ForeignBitfield' );
 
   my $test_bitfield_symbols = [
-    $cffi->foreign_bitfield_symbols( $flags, 0b10010 )
-  ];
-  is_deeply(
-    $test_bitfield_symbols,
-    [ 'FLAG-A', 'FLAG-C' ]
-  );
+    $cffi->foreign_bitfield_symbols( $flags, 0b10010 ) ];
+  is_deeply( $test_bitfield_symbols,
+             [ 'FLAG-A', 'FLAG-C' ] );
 
-  is(
-    $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] ),
-    0b10010
-  );
+  is( $cffi->foreign_bitfield_value( $flags, [ 'flag-a', 'flag-c' ] ),
+      0b10010 );
 }
 # }}}
 
@@ -124,17 +100,13 @@ my $cffi = JGoff::Lisp::CFFI->new;
     [ 'flag-all' => 0 ],
     'flag-a',
     'flag-b',
-    'flag-c'
-  );
+    'flag-c' );
   isa_ok( $flags, 'JGoff::Lisp::CFFI::ForeignBitfield' );
 
   my $test_bitfield_symbols = [
-    $cffi->foreign_bitfield_symbols( $flags, 0b101 )
-  ];
-  is_deeply(
-    $test_bitfield_symbols,
-    [ 'FLAG-ALL', 'FLAG-A', 'FLAG-C' ]
-  );
+    $cffi->foreign_bitfield_symbols( $flags, 0b101 ) ];
+  is_deeply( $test_bitfield_symbols,
+             [ 'FLAG-ALL', 'FLAG-A', 'FLAG-C' ] );
 }
 # }}}
 
@@ -142,8 +114,7 @@ my $cffi = JGoff::Lisp::CFFI->new;
 { my $enum;
   $cffi->defcenum( \$enum,
     ':no',
-    ':yes'
-  );
+    ':yes' );
   isa_ok( $enum, 'JGoff::Lisp::CFFI::ForeignEnum' );
 
   is( $cffi->foreign_enum_keyword( $enum, 0 ), ':NO' );
@@ -160,14 +131,11 @@ my $cffi = JGoff::Lisp::CFFI->new;
     [ 'x'      => $JGoff::Lisp::CFFI::int ],
     [ 'y'      => $JGoff::Lisp::CFFI::int ],
     [ 'width'  => $JGoff::Lisp::CFFI::int ],
-    [ 'height' => $JGoff::Lisp::CFFI::int ],
-  );
+    [ 'height' => $JGoff::Lisp::CFFI::int ] );
   isa_ok( $rect_struct, 'JGoff::Lisp::CFFI::ForeignCStruct' );
 
-  is_deeply(
-    [ $cffi->foreign_slot_names( $rect_struct ) ],
-    [ 'X', 'Y', 'WIDTH', 'HEIGHT' ]
-  );
+  is_deeply( [ $cffi->foreign_slot_names( $rect_struct ) ],
+             [ 'X', 'Y', 'WIDTH', 'HEIGHT' ] );
 
   is( $cffi->foreign_slot_offset( $rect_struct, 'x'      ), 0 );
   is( $cffi->foreign_slot_offset( $rect_struct, 'y'      ), 2 );
@@ -198,10 +166,8 @@ my $cffi = JGoff::Lisp::CFFI->new;
            $window_rect,
            $rect_struct,
            sub {
-             is_deeply(
-               [ $_{x}, $_{y}, $_{width}, $_{height} ],
-               [ 42, 41, 40, 39 ]
-             );
+             is_deeply( [ $_{x}, $_{y}, $_{width}, $_{height} ],
+                        [ 42, 41, 40, 39 ] );
            }
   );
 }
@@ -472,10 +438,7 @@ $cffi->defcallback( sum_char => $JGoff::Lisp::CFFI::char,
 $cffi->defcallback( sum_unsigned_char => $JGoff::Lisp::CFFI::unsigned_char,
   [ [ a => $JGoff::Lisp::CFFI::unsigned_char ],
     [ b => $JGoff::Lisp::CFFI::unsigned_char ] ],
-  sub {
-    $_{a} + $_{b}
-  }
-);
+  sub { $_{a} + $_{b} } );
 
 #(defcallback sum-short :short ((a :short) (b :short))
 #  ;(format t "~%}}} a: ~A, b: ~A {{{~%" a b)
@@ -485,9 +448,7 @@ $cffi->defcallback( sum_short => $JGoff::Lisp::CFFI::short,
   [ [ a => $JGoff::Lisp::CFFI::short ],
     [ b => $JGoff::Lisp::CFFI::short ] ],
   sub {
-    $_{a} + $_{b}
-  }
-);
+    $_{a} + $_{b} } );
 
 #(defcallback sum-unsigned-short :unsigned-short
 #    ((a :unsigned-short) (b :unsigned-short))
@@ -498,9 +459,7 @@ $cffi->defcallback( sum_unsigned_short => $JGoff::Lisp::CFFI::unsigned_short,
   [ [ a => $JGoff::Lisp::CFFI::unsigned_short ],
     [ b => $JGoff::Lisp::CFFI::unsigned_short ] ],
   sub {
-    $_{a} + $_{b}
-  }
-);
+    $_{a} + $_{b} } );
 
 #(defcallback sum-int :int ((a :int) (b :int))
 #  (+ a b))
@@ -509,9 +468,7 @@ $cffi->defcallback( sum_int => $JGoff::Lisp::CFFI::int,
   [ [ a => $JGoff::Lisp::CFFI::int ],
     [ b => $JGoff::Lisp::CFFI::int ] ],
   sub {
-    return $_{a} + $_{b}
-  }
-);
+    return $_{a} + $_{b} } );
 
 #(defcallback sum-unsigned-int :unsigned-int
 #    ((a :unsigned-int) (b :unsigned-int))
@@ -521,9 +478,7 @@ $cffi->defcallback( sum_unsigned_int => $JGoff::Lisp::CFFI::unsigned_int,
   [ [ a => $JGoff::Lisp::CFFI::unsigned_int ],
     [ b => $JGoff::Lisp::CFFI::unsigned_int ] ],
   sub {
-    return $_{a} + $_{b}
-  }
-);
+    return $_{a} + $_{b} } );
 
 #(defcallback sum-long :long ((a :long) (b :long))
 #  (+ a b))
@@ -532,9 +487,7 @@ $cffi->defcallback( sum_short => $JGoff::Lisp::CFFI::short,
   [ [ a => $JGoff::Lisp::CFFI::short ],
     [ b => $JGoff::Lisp::CFFI::short ] ],
   sub {
-    return $_{a} + $_{b}
-  }
-);
+    return $_{a} + $_{b} } );
 
 #(defcallback sum-unsigned-long :unsigned-long
 #    ((a :unsigned-long) (b :unsigned-long))
@@ -544,9 +497,7 @@ $cffi->defcallback( sum_unsigned_long => $JGoff::Lisp::CFFI::unsigned_long,
   [ [ a => $JGoff::Lisp::CFFI::unsigned_long ],
     [ b => $JGoff::Lisp::CFFI::unsigned_long ] ],
   sub {
-    return $_{a} + $_{b}
-  }
-);
+    return $_{a} + $_{b} } );
 
 ##-cffi-sys::no-long-long
 #(progn
@@ -586,9 +537,7 @@ $cffi->defcallback( sum_float => $JGoff::Lisp::CFFI::float,
   [ [ a => $JGoff::Lisp::CFFI::float ],
     [ b => $JGoff::Lisp::CFFI::float ] ],
   sub {
-    $_{a} + $_{b}
-  }
-);
+    $_{a} + $_{b} } );
 
 #(defcallback sum-double :double ((a :double) (b :double))
 #  ;(format t "~%}}} a: ~A, b: ~A {{{~%" a b)
@@ -598,9 +547,7 @@ $cffi->defcallback( sum_double => $JGoff::Lisp::CFFI::float,
   [ [ a => $JGoff::Lisp::CFFI::double ],
     [ b => $JGoff::Lisp::CFFI::double ] ],
   sub {
-    $_{a} + $_{b}
-  }
-);
+    $_{a} + $_{b} } );
 
 ##+long-float
 #(defcallback sum-long-double :long-double ((a :long-double) (b :long-double))
@@ -624,9 +571,7 @@ $cffi->defcallback( sum_pointer => $JGoff::Lisp::CFFI::pointer,
   [ [ ptr => $JGoff::Lisp::CFFI::pointer ],
     [ offset => $JGoff::Lisp::CFFI::int ] ],
   sub {
-    $cffi->inc_ponter( $_{ptr}, $_{offset} ); # XXX $cffi...
-  }
-);
+    $cffi->inc_ponter( $_{ptr}, $_{offset} ); } ); # XXX ...
 
 #(defcallback lisp-strcat :string ((a :string) (b :string))
 #  (concatenate 'string a b))
@@ -635,9 +580,7 @@ $cffi->defcallback( lisp_strcat => $JGoff::Lisp::CFFI::string,
   [ [ a => $JGoff::Lisp::CFFI::string ],
     [ b => $JGoff::Lisp::CFFI::string ] ],
   sub {
-    $_{a} . $_{b}
-  }
-);
+    $_{a} . $_{b} } );
 
 (deftest callbacks.char
     (expect-char-sum (get-callback 'sum-char))
@@ -776,9 +719,7 @@ $cffi->defcfun( pass_int_ref => ':void', [ f => $JGoff::Lisp::CFFI::pointer ] );
 $cffi->defcallback( read_int_from_pointer => ':void',
   [ [ a => $JGoff::Lisp::CFFI::pointer ] ],
   sub {
-    $int = $cffi->mem_ref( $_{a} => ':int' )
-  }
-);
+    $int = $cffi->mem_ref( $_{a} => ':int' ) } );
 
 (deftest callbacks.void
     (progn
@@ -4199,9 +4140,13 @@ ARG-TYPES list and whose sum fits in RETTYPE."
 
 # {{{ union
 
-(defcunion uint32-bytes
-  (int-value :unsigned-int)
-  (bytes :unsigned-char :count 4))
+#(defcunion uint32-bytes
+#  (int-value :unsigned-int)
+#  (bytes :unsigned-char :count 4))
+
+$cffi->defcunion( \$uint32_bytes,
+  [ 'int-value' => $JGoff::Lisp::CFFI::unsigned_int ],
+  [ 'bytes' => $JGoff::Lisp::CFFI::unsigned_char, ':count' => 4 ],
 
 (defctype uint32-bytes (:union uint32-bytes))
 
@@ -4602,7 +4547,7 @@ ARG-TYPES list and whose sum fits in RETTYPE."
 ### ###     (:actual-type :int)
 ### ###     (:simple-parser curl-code))
 ### 
-### $curl_code_type = define_foreign_type(
+### $cffi->define_foreign_type( \$curl_code_type
 ###   [],
 ###   [ ':actual-type' => ':int' ],
 ###   [ ':simple-parser' => $curl_code ] );
@@ -4662,7 +4607,7 @@ ARG-TYPES list and whose sum fits in RETTYPE."
 ### ###     (:actual-type :pointer)
 ### ###     (:simple-parser easy-handle))
 ### 
-### $easy_handle_type = define_foreign_type(
+### $cffi->define_foreign_type( \$easy_handle_type,
 ###   [ ],
 ###   [ ':actual-type' => $JGoff::Lisp::CFFI::pointer ],
 ###   [ ':simple-parser' => $easy_handle ] );

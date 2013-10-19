@@ -17,8 +17,9 @@ use JGoff::Lisp::CFFI::ForeignPointer;
 
 use JGoff::Lisp::CFFI::Type;
 
+# {{{ CFFI types
 our $boolean =
-  JGoff::Lisp::CFFI::Type->new( name => ':char', size => 1 );
+  JGoff::Lisp::CFFI::Type->new( name => ':boolean', size => 1 );
 our $char =
   JGoff::Lisp::CFFI::Type->new( name => ':char', size => 1 );
 our $unsigned_char =
@@ -64,6 +65,7 @@ our $string =
   JGoff::Lisp::CFFI::Type->new( name => ':string', size => 0 );
 our $pointer =
   JGoff::Lisp::CFFI::Type->new( name => ':pointer', size => 4 );
+# }}}
 
 #
 # with-foreign-object is a wrapper around with-foreign-pointer.
@@ -78,6 +80,7 @@ our $pointer =
 our $no_long_long = undef; # Exposed from cffi-sys.
 our $long_float = undef; # Exposed from cffi-sys.
 
+# {{{ ForeignTypeName
 #enum 'ForeignTypeName' => [
 #  ':char',
 #  ':int', ':int8', ':int16',
@@ -111,7 +114,9 @@ our $long_float = undef; # Exposed from cffi-sys.
 #  ':pointer', # Type is optional
 #  ':boolean', # base-type is optional
 #];
-# 
+# }}}
+
+# {{{ ForeignCompoundTypeName
 # enum 'ForeignCompoundTypeName' => [
 #   ':pointer',
 #   ':boolean',
@@ -122,6 +127,7 @@ our $long_float = undef; # Exposed from cffi-sys.
 # #                                         # which is :int by default
 # #  ':wrapper base-type &key to-c from-c'
 # ];
+# }}}
 
 =head1 NAME
 
@@ -171,7 +177,13 @@ Perhaps a little code snippet.
 # {{{ convert_from_foreign
 =head2 convert_from_foreign - Outside interface to backward type translator
 
-(Foreign Types)
+    $str = $cffi->convert_from_foreign( $str_foo, $JGoff::Lisp::CFFI::string );
+
+    $cffi->defcstruct( \$point_struct,
+      'Point structure.',
+      [ 'x' => $JGoff::Lisp::CFFI::int ],
+      [ 'y' => $JGoff::Lisp::CFFI::int ] );
+    $origin_perl = $cffi->convert_from_foreign( $origin, $point_struct );
 
 Syntax
   Function: convert_from_foreign foreign_value type => value
@@ -221,7 +233,8 @@ method convert_from_foreign(
 # {{{ convert_to_foreign
 =head2 convert_to_foreign - Outside interface to forward type translator
 
-(Foreign Types)
+    $x = $cffi->convert_to_foreign( "a boat", $JGoff::Lisp::CFFI::string );
+    $object = $cffi->convert_from_foreign( $x, $JGoff::Lisp::CFFI::string );
 
 Syntax
   Function: convert_to_foreign value type => foreign_value, alloc_params
@@ -272,12 +285,11 @@ Examples
 # Switch return values so 'my $x = ... ' works transparently.
 #
 method convert_to_foreign(
-         $object,
+         $value,
          JGoff::Lisp::CFFI::Type $type ) {
   my ( $foreign_value, $alloc_params );
-  $foreign_value =
-    JGoff::Lisp::CFFI::ForeignAddress->new( object => $object );
-$alloc_params = 2;
+  ( $foreign_value, $alloc_params ) =
+  ( JGoff::Lisp::CFFI::ForeignAddress->new( object => $value ), 2 );
 
   return ( $alloc_params, $foreign_value );
 }
@@ -286,7 +298,12 @@ $alloc_params = 2;
 # {{{ defbitfield
 =head2 defbitfield - Defines a bitfield
 
-(Foreign Types)
+    $cffi->defbitfield( \$bitfield,
+      'one',
+      'two',
+      [ 'three' => 3 ],
+      'four' );
+    $x = $cffi->foreign_bitfield_value( $open_flags, [ 'one', 'four' ] );
 
 Syntax
   Macro: defbitfield name-and-options &body masks
@@ -316,14 +333,14 @@ Description
   Types defined with defbitfield canonicalize to base-type which is :int by default.
 
 Examples
-  (defbitfield open-flags
-    (:rdonly #x0000)
-    :wronly               ;#x0001
-    :rdwr                 ;...
-    :nonblock
-    :append
-    (:creat  #x0200))
-    ;; etc...
+  #(defbitfield open-flags
+  #  (:rdonly #x0000)
+  #  :wronly               ;#x0001
+  #  :rdwr                 ;...
+  #  :nonblock
+  #  :append
+  #  (:creat  #x0200))
+  #  ;; etc...
 
   $cffi->defbitfield( \$open_flags,
     [ ':rdonly' => 0x0000 ],
@@ -367,7 +384,7 @@ Examples
 =cut
 
 method defbitfield(
-         $name_ref,
+         $foreign_bitfield_ref,
          @masks ) {
   my ( $foreign_bitfield );
   my $bits = {};
@@ -396,7 +413,7 @@ method defbitfield(
       ( $all_bits ? ( all_bits => $all_bits ) : () )
     );
 
-  $$name_ref = $foreign_bitfield;
+  $$foreign_bitfield_ref = $foreign_bitfield;
   return ( $foreign_bitfield );
 }
 # }}}
@@ -404,7 +421,10 @@ method defbitfield(
 # {{{ defcstruct
 =head2 defcstruct - Defines a C struct type.
 
-(Foreign Types)
+    $cffi->defcstruct( \$point,
+      "Point structure.",
+      [ 'x' => $JGoff::Lisp::CFFI::int ],
+      [ 'y' => $JGoff::Lisp::CFFI::int ] );
 
 Syntax
   Macro: defcstruct name-and-options &body doc-and-slots => name
@@ -472,10 +492,8 @@ Examples
       ( $_{x}, $_{y} );
     } );
   } );
-  is_deeply(
-    [ @x ],
-    [ 42, 42 ]
-  );
+  is_deeply( [ @x ],
+             [ 42, 42 ] );
 
   # Using the :size and :offset options to define a partial structure.
   # (this is useful when you are interested in only a few slots
@@ -553,7 +571,9 @@ method defcstruct(
 # {{{ defcunion
 =head2 defcunion - Defines a C union type.
 
-(Foreign Types)
+    $cffi->defcunion( \$uint32_bytes,
+      [ 'int-value' => $JGoff::Lisp::CFFI::unsigned_int ],
+      [ 'bytes' => $JGoff::Lisp::CFFI::unsigned_char, ':count' => 4 ],
 
 Syntax
   Macro: defcunion name &body doc-and-slots => name
@@ -599,10 +619,7 @@ method defcunion(
 # {{{ defctype
 =head2 defctype - Defines a foreign typedef.
 
-  /* typedef error_code int; */
-  $cffi->defctype( \$error_code => $JGoff::Lisp::CFFI::int );
-
-(Foreign Types)
+    $cffi->defctype( \$foo_float => $JGoff::Lisp::CFFI::float );
 
 Syntax
   Macro: defctype name base-type &optional documentation
@@ -648,7 +665,9 @@ method defctype(
 # {{{ defcenum
 =head2 defcenum - Defines a C enumeration.
 
-(Foreign Types)
+    $cffi->defcenum( \$enum,
+      ':no',
+      ':yes' );
 
 Syntax
   Macro: defcenum name-and-options &body enum-list
@@ -743,7 +762,10 @@ method defcenum(
 # {{{ define_foreign_type
 =head2 define_foreign_type: Defines a foreign type specifier.
 
-(Foreign Types)
+    $cffi->define_foreign_type( \$curl_code_type
+      [],
+      [ ':actual-type' => ':int' ],
+      [ ':simple-parser' => $curl_code ] );
 
 Syntax
   Macro: define-foreign-type class-name supers slots &rest options => class-name
@@ -795,6 +817,10 @@ Examples
 method define_foreign_type(
          @type ) {
   my ( $foreign_type );
+  $foreign_type = JGoff::Lisp::CFFI::Type->new(
+    name => 'foo',
+    size => 23
+  );
 
   return ( $foreign_type );
 }
@@ -802,8 +828,6 @@ method define_foreign_type(
 
 # {{{ define_parse_method
 =head2 define_parse_method: Specifies how a type should be parsed.
-
-(Foreign Types)
 
 Syntax
   Macro: define-parse-method name lambda-list &body body => name
@@ -860,7 +884,7 @@ method define_parse_method(
 # {{{ foreign_bitfield_symbols
 =head2 foreign_bitfield_symbols: Returns a list of symbols for a bitfield type.
 
-(Foreign Types)
+    @x = $cffi->foreign_bitfield_symbols( $JGoff::Lisp::CFFI::boolean, 0b101 );
 
 Syntax
   Function: foreign-bitfield-symbols type value => symbols
@@ -919,7 +943,7 @@ method foreign_bitfield_symbols(
 # {{{ foreign_bitfield_value
 =head2 foreign_bitfield_value: Calculates a value for a bitfield type.
 
-(Foreign Types)
+    @x = $cffi->foreign_bitfield_symbols( $flags, 0b101 ) ];
 
 Syntax
   Function: foreign-bitfield-value type symbols => value
@@ -971,7 +995,10 @@ method foreign_bitfield_value(
 # {{{ foreign_enum_keyword
 =head2 foreign_enum_keyword: Finds a keyword in an enum type.
 
-(Foreign Types)
+    $cffi->defcenum( \$boolean,
+      ':no',
+      ':yes' );
+    $x = $cffi->foreign_enum_keyword( $boolean, 1 );
 
 Syntax
   Function: foreign-enum-keyword type value &key errorp => keyword
@@ -998,8 +1025,7 @@ Examples
 
   $cffi->defcenum( \$boolean,
     ':no',
-    ':yes'
-  );
+    ':yes' );
    
   #CFFI> (foreign-enum-keyword 'boolean 1)
   #=> :YES
@@ -1022,7 +1048,10 @@ method foreign_enum_keyword(
 # {{{ foreign_enum_value
 =head2 foreign_enum_value: Finds a value in an enum type.
 
-(Foreign Types)
+    $cffi->defcenum( \$boolean,
+      ':no',
+      ':yes' );
+    $x = $cffi->foreign_enum_value( $boolean, ':yes' );
 
 Syntax
   Function: foreign-enum-value type keyword &key errorp => value
@@ -1074,7 +1103,10 @@ method foreign_enum_value(
 # {{{ foreign_slot_names
 =head2 foreign_slot_names: Returns a list of slot names in a foreign struct.
 
-(Foreign Types)
+    $cffi->defcstruct( \$timeval,
+      [ 'tv-secs'  => $JGoff::Lisp::CFFI::long ],
+      [ 'tv-usecs' => $JGoff::Lisp::CFFI::long ] );
+    @x = $cffi->foreign_slot_names( [ ':struct' => $timeval ] );
 
 Syntax
   Function: foreign-slot-names type => names
@@ -1101,10 +1133,8 @@ Examples
   #=> (TV-SECS TV-USECS)
 
   @x = $cffi->foreign_slot_names( [ ':struct' => $timeval ] );
-  is_deeply(
-    [ @x ],
-    [ 'TV-SECS', 'TV-USECS' ]
-  );
+  is_deeply( [ @x ],
+             [ 'TV-SECS', 'TV-USECS' ] );
 
 =cut
 
@@ -1122,7 +1152,10 @@ method foreign_slot_names(
 # {{{ foreign_slot_offset
 =head2 foreign_slot_offset: Returns the offset of a slot in a foreign struct.
 
-(Foreign Types)
+    $cffi->defcstruct( \$timeval,
+      [ 'tv-secs'  => $JGoff::Lisp::CFFI::long ],
+      [ 'tv-usecs' => $JGoff::Lisp::CFFI::long ] );
+    $x = $cffi->foreign_slot_offset( [ ':struct' => $timeval ], 'tv-secs' );
 
 Syntax
   Function: foreign-slot-offset type slot-name => offset
@@ -1181,7 +1214,14 @@ method foreign_slot_offset(
 # {{{ foreign_slot_pointer
 =head2 foreign_slot_pointer: Returns a pointer to a slot in a foreign struct.
 
-(Foreign Types)
+    $cffi->defcstruct( \$point,
+      "Pointer structure.",
+      [ 'x' => $JGoff::Lisp::CFFI::int ],
+      [ 'y' => $JGoff::Lisp::CFFI::int ] );
+    $x = $cffi->with_foreign_object(
+                 [ \$ptr => [ ':struct', $point ] ], sub {
+      $cffi->foreign_slot_pointer( $ptr => [ ':struct' => $point ], 'x' );
+    } );
 
 Syntax
   Function: foreign-slot-pointer ptr type slot-name => pointer
@@ -1218,8 +1258,7 @@ Examples
   #;; Note: the exact pointer representation varies from lisp to lisp.
 
   $x = $cffi->with_foreign_object( [ \$ptr => [ ':struct', $point ] ], sub {
-    $cffi->foreign_slot_pointer( $ptr => [ ':struct' => $point ], 'x' );
-  } );
+    $cffi->foreign_slot_pointer( $ptr => [ ':struct' => $point ], 'x' ) } );
 
 =cut
 
@@ -1239,7 +1278,17 @@ method foreign_slot_pointer(
 # {{{ foreign_slot_value
 =head2 foreign_slot_value: Returns the value of a slot in a foreign struct.
 
-(Foreign Types)
+    $cffi->defcstruct( \$point,
+      "Pointer structure.",
+      [ 'x' => $JGoff::Lisp::CFFI::int ],
+      [ 'y' => $JGoff::Lisp::CFFI::int ] );
+    @x = $cffi->with_foreign_object(
+                  [ $ptr => [ ':struct' => $point ] ], sub {
+      $cffi->foreign_slot_value( $ptr, [ ':struct', $point ], 'x', 42 );
+      $cffi->foreign_slot_value( $ptr, [ ':struct', $point ], 'y', 42 );
+      $cffi->with_foreign_slots(
+        [ 'x', 'y' ], $ptr, [ ':struct' => $point ],
+        sub { ( $_{x}, $_{y} ) } ) } );
 
 Syntax
   Accessor: foreign-slot-value ptr type slot-name => object
@@ -1308,7 +1357,9 @@ if ( $optional_value ) {
 # {{{ foreign_type_alignment
 =head2 foreign_type_alignment: Returns the alignment of a foreign type.
 
-(Foreign Types)
+    $cffi->defcstruct( \$foo,
+      [ 'a' => $JGoff::Lisp::CFFI::char ] );
+    $x = $cffi->foreign_type_alignment( [ ':struct' => $foo ] );
 
 Syntax
   Function: foreign-type-alignment type => alignment
@@ -1366,7 +1417,10 @@ method foreign_type_alignment(
 # {{{ foreign_type_size
 =head2 foreign_type_size: Returns the size of a foreign type.
 
-(Foreign Types)
+    $cffi->defcstruct( \$foo,
+      [ 'a' => $JGoff::Lisp::CFFI::double ],
+      [ 'c' => $JGoff::Lisp::CFFI::char   ] );
+    $x = $cffi->foreign_type_size( [ ':struct' => $foo ] );
 
 Syntax
   Function: foreign-type-size type => size
@@ -1420,8 +1474,6 @@ method foreign_type_size(
 # {{{ free_converted_object
 =head2 free_converted_object: Outside interface to typed object deallocators.
 
-(Foreign Types)
-
 Syntax
   Function: free-converted-object foreign-value type params
 
@@ -1472,8 +1524,6 @@ method free_converted_object(
 # {{{ free_translated_object
 =head2 free_translated_object: Defines how to free a foreign object.
 
-(Foreign Types)
-
 Syntax
   Generic Function: free-translated-object value type-name param
 
@@ -1502,8 +1552,6 @@ method free_translated_object(
 
 # {{{ translate_from_foreign
 =head2 translate_from_foreign: Defines a foreign-to-Lisp object translation.
-
-(Foreign Types)
 
 Syntax
   Generic Function: translate-from-foreign foreign-value type-name => lisp-value
@@ -1536,8 +1584,6 @@ method translate_from_foreign(
 
 # {{{ translate_to_foreign
 =head2 translate_to_foreign: Defines a Lisp-to-foreign object translation.
-
-(Foreign Types)
 
 Syntax
   Generic Function: translate-to-foreign lisp-value type-name => foreign-value, alloc-param
@@ -1637,8 +1683,6 @@ method translate_to_foreign(
 # {{{ with_foreign_slots
 =head2 with_foreign_slots: Accesses the slots of a foreign structure. 
 
-(Foreign Types)
-
 Syntax
   Macro: with-foreign-slots (vars ptr type) &body body
 
@@ -1691,8 +1735,9 @@ Examples
   $x = $cffi->with_foreign_object( [ \$time => $JGoff::Lisp::CFFI::int ], sub {
     $cffi->mem_ref( $time, ':int'
       $cffi->foreign_funcall( 'time', $JGoff::Lisp::CFFI::pointer, $cffi->null_pointer, $JGoff::Lisp::CFFI::int );
-    $cffi->foreign_funcall( 'gmtime', $JGoff::Lisp::CFFI::pointer, $time, [ $JGoff::Lisp::CFFI::pointer, [ ':struct', $tm ] ] );
-  } );
+    $cffi->foreign_funcall( 'gmtime' => $JGoff::Lisp::CFFI::pointer,
+                            $time, [ $JGoff::Lisp::CFFI::pointer,
+                                     [ ':struct', $tm ] ] ) } );
   isa_ok( $x, 'JGoff::Lisp::CFFI::ForeignAddress' );
 
   #
@@ -1706,11 +1751,11 @@ Examples
   #                hour min sec (+ 1900 year) mon mday))
   #=> "23:15:00, 2013/10/13"
 
-  is( $cffi->with_foreign_slots(
-              [ 'sec', 'min', 'hour', 'mday', 'mon', 'year' ], $tm_obj, $tm,
-              sub { sprintf "%d:%d:%d, %d/%d/%d",
-                      $_{hour}, $_{min}, $_{sec}, (1900 + $_{year}), $_{mon}, $_{mday} } ),
-      '23:15:00, 2013/10/13' );
+  $x = $cffi->with_foreign_slots(
+         [ 'sec', 'min', 'hour', 'mday', 'mon', 'year' ], $tm_obj, $tm, sub {
+         sprintf "%d:%d:%d, %d/%d/%d",
+           $_{hour}, $_{min}, $_{sec}, (1900 + $_{year}), $_{mon}, $_{mday} } );
+  is( $x, '23:15:00, 2013/10/13' );
 
 =cut
 
@@ -1734,8 +1779,6 @@ method with_foreign_slots(
 # {{{ foreign_free
 =head2 foreign_free: Deallocates memory.
 
-(Pointers)
-
 Syntax
   Function: foreign-free ptr => undefined
 
@@ -1747,15 +1790,16 @@ Description
   The foreign-free function frees a ptr previously allocated by foreign-alloc. The consequences of freeing a given pointer twice are undefined.
 
 Examples
-  CFFI> (foreign-alloc :int)
-  => #<A Mac Pointer #x1022E0>
+  #CFFI> (foreign-alloc :int)
+  #=> #<A Mac Pointer #x1022E0>
 
   $last = $cffi->foreign_alloc( $JGoff::Lisp::CFFI::int );
 
-  CFFI> (foreign-free *)
-  => NIL
+  #CFFI> (foreign-free *)
+  #=> NIL
 
-  $cffi->foreign_free( $last );
+  $x = $cffi->foreign_free( $last );
+  nok( $x );
 
 =cut
 
@@ -1767,8 +1811,6 @@ method foreign_free(
 
 # {{{ foreign_alloc
 =head2 foreign_alloc: Allocates memory.
-
-(Pointers)
 
 Syntax
   Function: foreign-alloc type &key initial-element initial-contents (count 1) null-terminated-p => pointer
@@ -1801,87 +1843,117 @@ Description
   When null-terminated-p is true, (1+ (max count (length initial-contents))) elements are allocated and the last one is set to NULL. Note that in this case type must be a pointer type (ie. a type that canonicalizes to :pointer), otherwise an error is signaled.
 
 Examples
-  CFFI> (foreign-alloc :char)
-  => #<A Mac Pointer #x102D80>     ; A pointer to 1 byte of memory.
+  #CFFI> (foreign-alloc :char)
+  #=> #<A Mac Pointer #x102D80>     ; A pointer to 1 byte of memory.
 
-  $cffi->foreign_alloc( $JGoff::Lisp::CFFI::char );
+  $x = $cffi->foreign_alloc( $JGoff::Lisp::CFFI::char );
+  isa_ok( $x, 'JGoff::Lisp::CFFI::ForeignPointer' );
    
-  CFFI> (foreign-alloc :char :count 20)
-  => #<A Mac Pointer #x1024A0>     ; A pointer to 20 bytes of memory.
+  #CFFI> (foreign-alloc :char :count 20)
+  #=> #<A Mac Pointer #x1024A0>     ; A pointer to 20 bytes of memory.
 
-  $cffi->foreign_alloc( $JGoff::Lisp::CFFI::char, ':count' => 20 );
+  $x = $cffi->foreign_alloc( $JGoff::Lisp::CFFI::char, ':count' => 20 );
+  isa_ok( $x, 'JGoff::Lisp::CFFI::ForeignPointer' );
    
-  CFFI> (foreign-alloc :int :initial-element 12)
-  => #<A Mac Pointer #x1028B0>
+  #CFFI> (foreign-alloc :int :initial-element 12)
+  #=> #<A Mac Pointer #x1028B0>
 
   $last = $cffi->foreign_alloc(
             $JGoff::Lisp::CFFI::int, ':initial-element' => 12 );
+  isa_ok( $x, 'JGoff::Lisp::CFFI::ForeignPointer' );
 
-  CFFI> (mem-ref * :int)
-  => 12
+  #CFFI> (mem-ref * :int)
+  #=> 12
 
-  is( $cffi->mem_ref( $last, $JGoff::Lisp::CFFI::int ), 12 );
+  $x = $cffi->mem_ref( $last, $JGoff::Lisp::CFFI::int );
+  is( $x, 12 );
    
-  CFFI> (foreign-alloc :int :initial-contents '(1 2 3))
-  => #<A Mac Pointer #x102950>
+  #CFFI> (foreign-alloc :int :initial-contents '(1 2 3))
+  #=> #<A Mac Pointer #x102950>
 
-  $last = $cffi->foreign_alloc($JGoff::Lisp::CFFI::int, ':initial-contents' => [ 1, 2, 3 ] );
+  $last = $cffi->foreign_alloc( $JGoff::Lisp::CFFI::int,
+                                ':initial-contents' => [ 1, 2, 3 ] );
+  isa_ok( $x, 'JGoff::Lisp::CFFI::ForeignPointer' );
 
-  CFFI> (loop for i from 0 below 3
-              collect (mem-aref * :int i))
-  => (1 2 3)
+  #CFFI> (loop for i from 0 below 3
+  #            collect (mem-aref * :int i))
+  #=> (1 2 3)
+
+  for my $i ( 0 .. 2 ) {
+    push @collection, $cffi->mem_aref( $last, $JGoff::Lisp::CFFI::int, $i ) }
+  is_deeply( [ @collection ],
+             [ 1, 2, 3 ] );
    
-  CFFI> (foreign-alloc :int :initial-contents #(1 2 3))
-  => #<A Mac Pointer #x102960>
+  #CFFI> (foreign-alloc :int :initial-contents #(1 2 3))
+  #=> #<A Mac Pointer #x102960>
 
-  $last = $cffi->foreign_alloc( $JGoff::Lisp::CFFI::int, ':initial-contents' => [ 1, 2, 3 ] );
+  $last = $cffi->foreign_alloc( $JGoff::Lisp::CFFI::int,
+                                ':initial-contents' => [ 1, 2, 3 ] );
 
-  CFFI> (loop for i from 0 below 3
-              collect (mem-aref * :int i))
-  => (1 2 3)
+  #CFFI> (loop for i from 0 below 3
+  #            collect (mem-aref * :int i))
+  #=> (1 2 3)
    
-  ;;; Allocate a char** pointer that points to newly allocated memory
-  ;;; by the :string type translator for the string "foo".
-  CFFI> (foreign-alloc :string :initial-element "foo")
-  => #<A Mac Pointer #x102C40>
+  for my $i ( 0 .. 2 ) {
+    push @collection, $cffi->mem_aref( $last, $JGoff::Lisp::CFFI::int, $i );
+  }
+  is_deeply( [ @collection ],
+             [ 1, 2, 3 ] );
 
-  $pointer = $cffi->foreign_alloc(
-               $JGoff::Lisp::CFFI::string, ':initial-element' => "foo" );
+  #;;; Allocate a char** pointer that points to newly allocated memory
+  #;;; by the :string type translator for the string "foo".
+  #CFFI> (foreign-alloc :string :initial-element "foo")
+  #=> #<A Mac Pointer #x102C40>
+
+  $x = $cffi->foreign_alloc( $JGoff::Lisp::CFFI::string,
+                             ':initial-element' => "foo" );
+  isa_ok( $x, 'JGoff::Lisp::CFFI::ForeignPointer' );
 
   ;;; Allocate a null-terminated array of strings.
   ;;; (Note: FOREIGN-STRING-TO-LISP returns NIL when passed a null pointer)
-  CFFI> (foreign-alloc :string
-                       :initial-contents '("foo" "bar" "baz")
-                       :null-terminated-p t)
-  => #<A Mac Pointer #x102D20>
+  #CFFI> (foreign-alloc :string
+  #                     :initial-contents '("foo" "bar" "baz")
+  #                     :null-terminated-p t)
+  #=> #<A Mac Pointer #x102D20>
 
-  $last = $cffi->foreign_alloc(
-    $JGoff::Lisp::CFFI::string, ':initial-contents' => [ "foo", "bar", "baz" ],
-    ':null-terminated-p' => 1 );
+  $last = $cffi->foreign_alloc( $JGoff::Lisp::CFFI::string,
+                                ':initial-contents' => [ "foo", "bar", "baz" ],
+                                ':null-terminated-p' => 1 );
+  isa_ok( $last, 'JGoff::Lisp::CFFI::ForeignPointer' );
 
-  CFFI> (loop for i from 0 below 4
-              collect (mem-aref * :string i))
-  => ("foo" "bar" "baz" NIL)
+  #CFFI> (loop for i from 0 below 4
+  #            collect (mem-aref * :string i))
+  #=> ("foo" "bar" "baz" NIL)
 
   for my $i ( 0 .. 3 ) {
-    push @collection, $cffi->mem_aref( $last, $JGoff::Lisp::CFFI::string, $i );
-  }
+    push @collected, $cffi->mem_aref( $last, $JGoff::Lisp::CFFI::string, $i ) }
+  is_deeply( [ @collected ],
+             [ 'foo', 'bar', 'baz', undef ] );
 
-  CFFI> (progn
-          (dotimes (i 3)
-            (foreign-free (mem-aref ** :pointer i)))
-          (foreign-free **))
-  => nil
+  #CFFI> (progn
+  #        (dotimes (i 3)
+  #          (foreign-free (mem-aref ** :pointer i)))
+  #        (foreign-free **))
+  #=> nil
 
-  (defcstruct struct-pair "Example pair from test suite" ((x :int) (y :int)))
+  $x = do {
+    for my $i ( 0 .. 2 ) {
+      $cffi->foreign_free(
+        $cffi->mem_aref( $last, $JGoff::Lisp::CFFI::pointer, $i ) }
+    $cffi->foreign_free( $last ) }
+  nok( $x );
 
-  $cffi->defcstruct(
-           \$struct_pair, "Example pair from test suite",
+  #(defcstruct struct-pair "Example pair from test suite" ((x :int) (y :int)))
+
+  $cffi->defcstruct( \$struct_pair, "Example pair from test suite",
            [ [ x => $JGoff::Lisp::CFFI::int ],
              [ y => $JGoff::Lisp::CFFI::int ] ] );
 
-  CFFI> (foreign-alloc '(:struct struct-pair))
-  => nil
+  #CFFI> (foreign-alloc '(:struct struct-pair))
+  #=> nil
+
+  $x = $cffi->foreign_alloc( [ ':struct', $struct_pair ] );
+  nok( $x );
 
 =cut
 
@@ -1897,8 +1969,6 @@ method foreign_alloc(
 
 # {{{ foreign_symbol_pointer
 =head2 foreign_symbol_pointer: Returns a pointer to a foreign symbol.
-
-(Pointers)
 
 Syntax
   Function: foreign-symbol-pointer foreign-name &key library => pointer
@@ -1921,25 +1991,32 @@ Description
   Important note: do not keep these pointers across saved Lisp cores as the foreign-library may move across sessions.
 
 Examples
-  CFFI> (foreign-symbol-pointer "errno")
-  => #<A Mac Pointer #xA0008130>
+  #CFFI> (foreign-symbol-pointer "errno")
+  #=> #<A Mac Pointer #xA0008130>
 
   $llast = $cffi->foreign_symbol_pointer( 'errno' );
+  isa_ok( $llast, 'JGoff::Lisp::CFFI::ForeignPointer' );
 
-  CFFI> (foreign-symbol-pointer "strerror")
-  => #<A Mac Pointer #x9002D0F8>
+  #CFFI> (foreign-symbol-pointer "strerror")
+  #=> #<A Mac Pointer #x9002D0F8>
 
   $last = $cffi->foreign_symbol_pointer( "strerror" );
+  isa_ok( $last, 'JGoff::Lisp::CFFI::ForeignPointer' );
 
-  CFFI> (foreign-funcall-pointer * () :int (mem-ref ** :int) :string)
-  => "No such file or directory"
+  #CFFI> (foreign-funcall-pointer * () :int (mem-ref ** :int) :string)
+  #=> "No such file or directory"
 
-  is( $cffi->foreign_funcall_pointer(
-        $last, [ ], $JGoff::Lisp::CFFI::int => $cffi->mem_ref( $llast, $JGoff::Lisp::CFFI::int ), $JGoff::Lisp::CFFI::string ),
-    "No such file or directory" );
+  $x = $cffi->foreign_funcall_pointer( $last, [ ],
+         $JGoff::Lisp::CFFI::int =>
+           $cffi->mem_ref( $llast, $JGoff::Lisp::CFFI::int ),
+         $JGoff::Lisp::CFFI::string );
+  is( $x, "No such file or directory" );
 
-  CFFI> (foreign-symbol-pointer "nonexistent symbol")
-  => NIL
+  #CFFI> (foreign-symbol-pointer "nonexistent symbol")
+  #=> NIL
+
+  $x = $cffi->foreign_symbol_pointer( "nonexistent symbol" );
+  nok( $x );
 
 =cut
 
@@ -1956,8 +2033,6 @@ method foreign_symbol_pointer(
 # {{{ inc_pointer
 =head2 inc_pointer: Increments the address held by a pointer.
 
-(Pointers)
-
 Syntax
   Function: inc-pointer pointer offset => new-pointer
 
@@ -1972,20 +2047,23 @@ Description
   The function inc-pointer will return a new-pointer pointing offset bytes past pointer.
 
 Examples
-  CFFI> (foreign-string-alloc "Common Lisp")
-  => #<A Mac Pointer #x102EA0>
+  #CFFI> (foreign-string-alloc "Common Lisp")
+  #=> #<A Mac Pointer #x102EA0>
 
   $last = $cffi->foreign_string_alloc( "Common Lisp" );
+  isa_ok( $last, 'JGoff::Lisp::CFFI::ForeignPointer' );
 
-  CFFI> (inc-pointer * 7)
-  => #<A Mac Pointer #x102EA7>
+  #CFFI> (inc-pointer * 7)
+  #=> #<A Mac Pointer #x102EA7>
 
   $last = $cffi->inc_pointer( $last, 7 );
+  isa_ok( $last, 'JGoff::Lisp::CFFI::ForeignPointer' );
 
-  CFFI> (foreign-string-to-lisp *)
-  => "Lisp"
+  #CFFI> (foreign-string-to-lisp *)
+  #=> "Lisp"
 
-  is( $cffi->foreign_string_to_lisp( $last ), "Lisp" );
+  $x = $cffi->foreign_string_to_lisp( $last );
+  is( $x, "Lisp" );
 
 =cut
 
@@ -2002,8 +2080,6 @@ method inc_pointer(
 # {{{ incf_pointer
 =head2 incf_pointer: Increments the pointer address in a place.
 
-(Pointers)
-
 Syntax
   Macro: incf-pointer place &optional (offset 1) => new-pointer
 
@@ -2019,30 +2095,33 @@ Description
   The incf-pointer macro takes the foreign pointer from place and creates a new-pointer incremented by offset bytes and which is stored in place.
 
 Examples
-  CFFI> (defparameter *two-words* (foreign-string-alloc "Common Lisp"))
-  => *TWO-WORDS*
+  #CFFI> (defparameter *two-words* (foreign-string-alloc "Common Lisp"))
+  #=> *TWO-WORDS*
 
   $two_words = $cffi->foreign_string_alloc( "Common Lisp" );
 
-  CFFI> (defparameter *one-word* *two-words*)
-  => *ONE-WORD*
+  #CFFI> (defparameter *one-word* *two-words*)
+  #=> *ONE-WORD*
 
   $one_word = $two_words;
 
-  CFFI> (incf-pointer *one-word* 7)
-  => #.(SB-SYS:INT-SAP #X00600457)
+  #CFFI> (incf-pointer *one-word* 7)
+  #=> #.(SB-SYS:INT-SAP #X00600457)
 
-  $cffi->incf_pointer( $one_word, 7 );
+  $x = $cffi->incf_pointer( $one_word, 7 );
+  isa_ok( $x, 'JGoff::Lisp::CFFI::ForeignPointer' );
 
-  CFFI> (foreign-string-to-lisp *one-word*)
-  => "Lisp"
+  #CFFI> (foreign-string-to-lisp *one-word*)
+  #=> "Lisp"
 
-  is( $cffi->foreign_string_to_lisp( $one_word ), "Lisp" );
+  $x = $cffi->foreign_string_to_lisp( $one_word );
+  is( $x, "Lisp" );
 
-  CFFI> (foreign-string-to-lisp *two-words*)
-  => "Common Lisp"
+  #CFFI> (foreign-string-to-lisp *two-words*)
+  #=> "Common Lisp"
 
-  is( $cffi->foreign_string_to_lisp( $two_words ), "Common Lisp" );
+  $x = $cffi->foreign_string_to_lisp( $two_words );
+  is( $x, "Common Lisp" );
 
 =cut
 
@@ -2055,8 +2134,6 @@ method incf_pointer(
 
 # {{{ make_pointer
 =head2 make_pointer: Returns a pointer to a given address.
-
-(Pointers)
 
 Syntax
   Function: make-pointer address => ptr
@@ -2071,33 +2148,38 @@ Description
   The function make-pointer will return a foreign pointer pointing to address.
 
 Examples
-  CFFI> (make-pointer 42)
-  => #<FOREIGN-ADDRESS #x0000002A>
+  #CFFI> (make-pointer 42)
+  #=> #<FOREIGN-ADDRESS #x0000002A>
 
   $last = $cffi->make_pointer( 42 );
+  isa_ok( $llast, 'JGoff::Lisp::CFFI::ForeignAddress' );
 
-  CFFI> (pointerp *)
-  => T
+  #CFFI> (pointerp *)
+  #=> T
 
-  is( $cffi->pointerp( $last ) );
+  $x = $cffi->pointerp( $last );
+  ok( $x );
 
-  CFFI> (pointer-address **)
-  => 42
+  #CFFI> (pointer-address **)
+  #=> 42
 
-  is( $cffi->pointer_address( $last ), 42 );
+  $x = $cffi->pointer_address( $last );
+  is( $x, 42 );
 
-  CFFI> (inc-pointer *** -42)
-  => #<FOREIGN-ADDRESS #x00000000>
+  #CFFI> (inc-pointer *** -42)
+  #=> #<FOREIGN-ADDRESS #x00000000>
 
   $last = $cffi->inc_pointer( $last, -42 );
+  isa_ok( $last, 'JGoff::Lisp::CFFI::ForeignAddress' );
 
-  CFFI> (null-pointer-p *)
-  => T
+  #CFFI> (null-pointer-p *)
+  #=> T
 
-  ok( $cffi->null_pointer_p( $last ) );
+  $x = $cffi->null_pointer_p( $last );
+  ok( $x );
 
-  CFFI> (typep ** 'foreign-pointer)
-  => T
+  #CFFI> (typep ** 'foreign-pointer)
+  #=> T
 
 =cut
 
@@ -2111,8 +2193,6 @@ method make_pointer(
 
 # {{{ mem_aptr
 =head2 mem_aptr: The pointer to an element of an array.
-
-(Pointers)
 
 Syntax
   Accessor: mem-aptr ptr type &optional (index 0)
@@ -2137,9 +2217,9 @@ Description
   (inc-pointer ptr (* n (foreign-type-size type)))
 
 Examples
-  CFFI> (with-foreign-string (str "Hello, foreign world!")
-          (mem-aptr str :char 6))
-  => #.(SB-SYS:INT-SAP #X0063D4B6)
+  #CFFI> (with-foreign-string (str "Hello, foreign world!")
+  #        (mem-aptr str :char 6))
+  #=> #.(SB-SYS:INT-SAP #X0063D4B6)
 
 =cut
 
@@ -2153,8 +2233,6 @@ method mem_aptr(
 # setf'able location
 # {{{ mem_aref
 =head2 mem_aref: Accesses the value of an index in an array.
-
-(Pointers)
 
 Syntax
   Accessor: mem-aref ptr type &optional (index 0)
@@ -2211,8 +2289,6 @@ method mem_aref(
 # {{{ mem_ref
 =head2 mem_ref: Dereferences a pointer.
 
-(Pointers)
-
 Syntax
   Accessor: mem-ref ptr type &optional offset => object
 
@@ -2235,25 +2311,26 @@ Examples
                 collect (code-char (mem-ref ptr :char i))))
   => (#\S #\a #\l #\a #\t #\o #\n #\Null)
 
-  CFFI> (setq ptr-to-int (foreign-alloc :int))
-  => #<A Mac Pointer #x1047D0>
+  #CFFI> (setq ptr-to-int (foreign-alloc :int))
+  #=> #<A Mac Pointer #x1047D0>
 
   $ptr_to_int = $cffi->foreign_alloc( $JGoff::Lisp::CFFI::int );
+  isa_ok( $ptr_to_int, 'JGoff::Lisp::CFFI::ForeignPointer' );
 
-  CFFI> (mem-ref ptr-to-int :int)
-  => 1054619
+  #CFFI> (mem-ref ptr-to-int :int)
+  #=> 1054619
 
-  is( $cffi->mem_ref( $ptr_to_int, $JGoff::Lisp::CFFI::int ),
-      1054619 );
+  $x = $cffi->mem_ref( $ptr_to_int, $JGoff::Lisp::CFFI::int );
+  is( $x, 1054619 );
 
-  CFFI> (setf (mem-ref ptr-to-int :int) 1984)
-  => 1984
+  #CFFI> (setf (mem-ref ptr-to-int :int) 1984)
+  #=> 1984
 
-  CFFI> (mem-ref ptr-to-int :int)
-  => 1984
+  #CFFI> (mem-ref ptr-to-int :int)
+  #=> 1984
 
-  is( $cffi->mem_ref( $ptr_to_int, $JGoff::Lisp::CFFI::int ),
-      1984 );
+  $x = $cffi->mem_ref( $ptr_to_int, $JGoff::Lisp::CFFI::int );
+  is( $x, 1984 );
 
 =cut
 
@@ -2267,8 +2344,6 @@ method mem_ref(
 # {{{ null_pointer
 =head2 null_pointer: Returns a NULL pointer.
 
-(Pointers)
-
 Syntax
   Function: null-pointer => pointer
 
@@ -2280,15 +2355,17 @@ Description
   The function null-pointer returns a null pointer.
 
 Examples
-  CFFI> (null-pointer)
-  => #<A Null Mac Pointer>
+  #CFFI> (null-pointer)
+  #=> #<A Null Mac Pointer>
 
   $last = $cffi->null_pointer();
+  isa_ok( $last, 'JGoff::Lisp::CFFI::ForeignPointer' );
 
-  CFFI> (pointerp *)
-  => T
+  #CFFI> (pointerp *)
+  #=> T
 
-  ok( $cffi->pointerp( $last ) );
+  $x = $cffi->pointerp( $last );
+  ok( $x );
 
 =cut
 
@@ -2303,8 +2380,6 @@ method null_pointer() {
 # {{{ null_pointer_p
 =head2 null_pointer_p: Tests a pointer for NULL value.
 
-(Pointers)
-
 Syntax
   Function: null-pointer-p ptr => boolean
 
@@ -2318,30 +2393,32 @@ Description
   The function null-pointer-p returns true if ptr is a null pointer and false otherwise.
 
 Examples
-  CFFI> (null-pointer-p (null-pointer))
-  => T
+  #CFFI> (null-pointer-p (null-pointer))
+  #=> T
 
-  ok( $cffi->null_pointer_p( $cffi->null_pointer() ) );
+  $x = $cffi->null_pointer_p( $cffi->null_pointer() );
+  ok( $x );
 
-  (defun contains-str-p (big little)
-    (not (null-pointer-p
-          (foreign-funcall "strstr" :string big :string little :pointer))))
+  #(defun contains-str-p (big little)
+  #  (not (null-pointer-p
+  #        (foreign-funcall "strstr" :string big :string little :pointer))))
 
   fun contains_str_p( $big, $little ) {
     !$cffi->null_pointer_p(
        $cffi->foreign_funcall(
-          "strstr", ':string', $big, ':string', $little, ':pointer' ) );
-  }
+          "strstr", ':string', $big, ':string', $little, ':pointer' ) ) }
    
-  CFFI> (contains-str-p "Popcorns" "corn")
-  => T
+  #CFFI> (contains-str-p "Popcorns" "corn")
+  #=> T
 
-  ok( contains_str_p( "Popcorns", "corn" ) );
+  $x = contains_str_p( "Popcorns", "corn" );
+  ok( $x );
 
-  CFFI> (contains-str-p "Popcorns" "salt")
-  => NIL
+  #CFFI> (contains-str-p "Popcorns" "salt")
+  #=> NIL
 
-  nok( contains_str_p( "Popcorns", "salt" ) );
+  $x = contains_str_p( "Popcorns", "salt" );
+  nok( $x );
 
 =cut
 
@@ -2355,8 +2432,6 @@ method null_pointer_p(
 
 # {{{ pointerp
 =head2 pointerp: Tests whether an object is a pointer or not.
-
-(Pointers)
 
 Syntax
   Function: pointerp ptr => boolean
@@ -2375,20 +2450,23 @@ Implementation-specific Notes
   In Allegro CL, foreign pointers are integers thus in this implementation pointerp will return true for any ordinary integer.
 
 Examples
-  CFFI> (foreign-alloc 32)
-  => #<A Mac Pointer #x102D20>
+  #CFFI> (foreign-alloc 32)
+  #=> #<A Mac Pointer #x102D20>
 
   $last = $cffi->foreign_alloc( 32 );
+  isa_ok( $last, 'JGoff::Lisp::CFFI::ForeignPointer' );
 
-  CFFI> (pointerp *)
-  => T
+  #CFFI> (pointerp *)
+  #=> T
 
-  ok( $cffi->pointerp( $last ) );
+  $x = $cffi->pointerp( $last );
+  ok( $x );
 
-  CFFI> (pointerp "this is not a pointer")
-  => NIL
+  #CFFI> (pointerp "this is not a pointer")
+  #=> NIL
 
-  nok( $cffi->pointerp( "this is not a pointer" ) );
+  $x = $cffi->pointerp( "this is not a pointer" );
+  nok( $x );
 
 =cut
 
@@ -2403,8 +2481,6 @@ method pointerp(
 # {{{ pointer_address
 =head2 pointer_address: Returns the address pointed to by a pointer.
 
-(Pointers)
-
 Syntax
   Function: pointer-address ptr => address
 
@@ -2418,15 +2494,17 @@ Description
   The function pointer-address will return the address of a foreign pointer ptr.
 
 Examples
-  CFFI> (pointer-address (null-pointer))
-  => 0
+  #CFFI> (pointer-address (null-pointer))
+  #=> 0
 
-  is( $cffi->pointer_address( $cffi->null_pointer() ), 0 );
+  $x = $cffi->pointer_address( $cffi->null_pointer() );
+  is( $x, 0 );
 
-  CFFI> (pointer-address (make-pointer 123))
-  => 123
+  #CFFI> (pointer-address (make-pointer 123))
+  #=> 123
 
-  is( $cffi->pointer_address( $cffi->make_pointer( 123 ) ), 123 );
+  $x = $cffi->pointer_address( $cffi->make_pointer( 123 ) );
+  is( $x, 123 );
 
 =cut
 
@@ -2441,8 +2519,6 @@ method pointer_address(
 
 # {{{ pointer_eq
 =head2 pointer_eq: Tests if two pointers point to the same address.
-
-(Pointers)
 
 Syntax
   Function: pointer-eq ptr1 ptr2 => boolean
@@ -2464,11 +2540,17 @@ Implementation-specific Notes
 Examples
   This is an example using SBCL, see the implementation-specific notes above.
 
-  CFFI> (eql (null-pointer) (null-pointer))
-  => NIL
+  #CFFI> (eql (null-pointer) (null-pointer))
+  #=> NIL
 
-  CFFI> (pointer-eq (null-pointer) (null-pointer))
-  => T
+  $x = ( $cffi->null_pointer == $cffi->null_pointer );
+  nok( $x );
+
+  #CFFI> (pointer-eq (null-pointer) (null-pointer))
+  #=> T
+
+  $x = $cffi->pointer_eq( $cffi->null_pointer, $cffi->null_pointer );
+  ok( $x );
 
 =cut
 
@@ -2485,8 +2567,6 @@ method pointer_eq(
 
 # {{{ with_foreign_pointer
 =head2 with_foreign_pointer: Allocates memory with dynamic extent. 
-
-(Pointers)
 
 Syntax
   Macro: with-foreign-pointer (var size &optional size-var) &body body
@@ -2556,12 +2636,13 @@ Examples
           (foreign-funcall "strdup" (:string :encoding :utf-16) "foo" :string))
   => "foo"
 
-  is( do { local $default_foreign_encoding = ':utf-16';
-           $cffi->foreign_funcall(
-             "strdup",
-             [ ':string', ':encoding', ':utf-16' ],
-             "foo",
-             ':string' ) }, "foo" );
+  $x = do { local $default_foreign_encoding = ':utf-16';
+            $cffi->foreign_funcall(
+              "strdup",
+              [ ':string', ':encoding', ':utf-16' ],
+              "foo",
+              ':string' ) };
+  is( $x, "foo" );
 
 See also
 
@@ -2579,8 +2660,6 @@ my $default_foreign_encoding = ''; # XXX # Default encoding for the string types
 
 # {{{ foreign_string_alloc
 =head2 foreign_string_alloc: Converts a Lisp string to a foreign string.
-
-(Strings)
 
 Syntax
   Function: foreign-string-alloc string &key encoding null-terminated-p start end => pointer
@@ -2611,10 +2690,11 @@ Examples
   $str = $cffi->foreign_string_alloc( "Hello, foreign world!" );
   isa_ok( $str, 'JGoff::Lisp::CFFI::ForeignAddress' );
 
-  CFFI> (foreign-funcall "strlen" :pointer *str* :int)
-  => 21
+  #CFFI> (foreign-funcall "strlen" :pointer *str* :int)
+  #=> 21
 
-  is( $cffi->foreign_funcall( "strlen", ':pointer', $str, ':int' ), 21 );
+  $x = $cffi->foreign_funcall( "strlen", ':pointer', $str, ':int' );
+  is( $x, 21 );
 
 =cut
 
@@ -2630,8 +2710,6 @@ method foreign_string_alloc(
 
 # {{{ foreign_string_free
 =head2 foreign_string_free: Deallocates memory used by a foreign string.
-
-(Strings)
 
 Syntax
   Function: foreign-string-free pointer
@@ -2655,8 +2733,6 @@ method foreign_string_free(
 
 # {{{ foreign_string_to_lisp
 =head2 foreign_string_to_lisp: Converts a foreign string to a Lisp string.
-
-(Strings)
 
 Syntax
   Function: foreign-string-to-lisp ptr &key offset count max-chars encoding => string
@@ -2685,15 +2761,16 @@ Description
   Note that the :string type will automatically convert between Lisp strings and foreign strings.
 
 Examples
-  CFFI> (foreign-funcall "getenv" :string "HOME" :pointer)
-  => #<FOREIGN-ADDRESS #xBFFFFFD5>
+  #CFFI> (foreign-funcall "getenv" :string "HOME" :pointer)
+  #=> #<FOREIGN-ADDRESS #xBFFFFFD5>
 
   $last = $cffi->foreign_funcall( "getenv", ':string', "HOME", ':pointer' );
 
-  CFFI> (foreign-string-to-lisp *)
-  => "/Users/luis"
+  #CFFI> (foreign-string-to-lisp *)
+  #=> "/Users/luis"
 
-  is( $cffi->foreign_string_to_lisp( $last ), "/Users/jgoff" );
+  $x = $cffi->foreign_string_to_lisp( $last );
+  is( $x, "/Users/jgoff" );
 
 =cut
 
@@ -2708,8 +2785,6 @@ method foreign_string_to_lisp(
 
 # {{{ lisp_string_to_foreign
 =head2 lisp_string_to_foreign: Copies a Lisp string into a foreign string.
-
-(Strings)
 
 Syntax
   Function: lisp-string-to-foreign string buffer bufsize &key start end offset encoding => buffer
@@ -2754,8 +2829,6 @@ method lisp_string_to_foreign(
 # {{{ with_foreign_string
 =head2 with_foreign_string: Allocates a foreign string with dynamic extent.
 
-(Strings)
-
 Syntax
   Macro: with-foreign-string (var-or-vars string &rest args) &body body
   Macro: with-foreign-strings (bindings) &body body
@@ -2777,13 +2850,13 @@ Description
   If octet-size-var is provided, it will be bound the length of foreign string in octets including the null terminator.
 
 Examples
-  CFFI> (with-foreign-string (foo "12345")
-          (foreign-funcall "strlen" :pointer foo :int))
-  => 5
+  #CFFI> (with-foreign-string (foo "12345")
+  #        (foreign-funcall "strlen" :pointer foo :int))
+  #=> 5
 
-  is( $cffi->with_foreign_string( \$foo, "12345", sub {
-        return $cffi->foreign_funcall( "strlen", ':pointer', $foo, ':int' );
-  }, 5 );
+  $x = $cffi->with_foreign_string( \$foo, "12345", sub {
+         return $cffi->foreign_funcall( "strlen", ':pointer', $foo, ':int' ) };
+  is( $x, 5 );
    
   CFFI> (let ((array (coerce #(84 117 114 97 110 103 97)
                              '(array (unsigned-byte 8)))))
@@ -2801,8 +2874,6 @@ method with_foreign_string(
 # {{{ with_foreign_strings
 =head2 with_foreign_strings: Plural form of with-foreign-string.
 
-(Strings)
-
 (see: with-foreign-strings)
 
 =cut
@@ -2813,8 +2884,6 @@ method with_foreign_strings() {
 
 # {{{ with_foreign_pointer_as_string
 =head2 with_foreign_pointer_as_string: Similar to CL's with-output-to-string. 
-
-(Strings)
 
 Syntax
   Macro: with-foreign-pointer-as-string (var size &optional size-var &rest args) &body body => string
@@ -2831,13 +2900,15 @@ Description
   The with-foreign-pointer-as-string macro is similar to with-foreign-pointer except that var is used as the returned value of an implicit progn around body, after being converted to a Lisp string using the provided args.
 
 Examples
-  CFFI> (with-foreign-pointer-as-string (str 6 str-size :encoding :ascii)
-          (lisp-string-to-foreign "Hello, foreign world!" str str-size))
-  => "Hello"
+  #CFFI> (with-foreign-pointer-as-string (str 6 str-size :encoding :ascii)
+  #        (lisp-string-to-foreign "Hello, foreign world!" str str-size))
+  #=> "Hello"
 
-  $cffi->with_foreign_pointer_as_string( \$str, 6, \$str_size, ':encoding', ':ascii', sub {
+  $x = $cffi->with_foreign_pointer_as_string(
+                \$str, 6, \$str_size, ':encoding', ':ascii', sub {
     $cffi->lisp_string_to_foreign( "Hello, foreign world!", $str, $str_size );
   } );
+  is( $x, "Hello" );
 
 =cut
 
@@ -2848,8 +2919,6 @@ method with_foreign_pointer_as_string(
 
 # {{{ defcvar
 =head2 defcvar: Defines a C global variable.
-
-(Variables)
 
 Syntax
   Macro: defcvar name-and-options type &optional documentation => lisp-name
@@ -2878,29 +2947,42 @@ Description
     Lisp names are converted to foreign names by lowercasing, replacing hyphens with underscores, and removing asterisks, if any. 
 
 Examples
-  CFFI> (defcvar "errno" :int)
-  => *ERRNO*
+  #CFFI> (defcvar "errno" :int)
+  #=> *ERRNO*
 
-  $cffi->defcvar( \$errno, ':int' );
+  $x = $cffi->defcvar( \$errno, ':int' );
+  is( $x, "ERRNO" );
 
-  CFFI> (foreign-funcall "strerror" :int *errno* :string)
-  => "Inappropriate ioctl for device"
+  #CFFI> (foreign-funcall "strerror" :int *errno* :string)
+  #=> "Inappropriate ioctl for device"
 
-  CFFI> (setf *errno* 1)
-  => 1
+  $x = $cffi->foreign_funcall(
+         "strerror", $JGoff::Lisp::CFFI::int,
+         $errno, $JGoff::Lisp::CFFI::string );
+  is( $x, "Inappropriate ioctl for device" );
 
-  CFFI> (foreign-funcall "strerror" :int *errno* :string)
-  => "Operation not permitted"
+  #CFFI> (setf *errno* 1)
+  #=> 1
+
+  $errno = 1;
+
+  #CFFI> (foreign-funcall "strerror" :int *errno* :string)
+  #=> "Operation not permitted"
+
+  $x = $cffi->foreign_funcall(
+         "strerror", $JGoff::Lisp::CFFI::int,
+         $errno, $JGoff::Lisp::CFFI::string );
+  is( $x, "Inappropriate ioctl for device" );
 
 Trying to modify a read-only foreign variable:
 
-  CFFI> (defcvar ("errno" +error-number+ :read-only t) :int)
-  => +ERROR-NUMBER+
+  #CFFI> (defcvar ("errno" +error-number+ :read-only t) :int)
+  #=> +ERROR-NUMBER+
 
   $cffi->defcvar( [ \$errno => $error_number, ':read-only' => 1 ] => ':int' );
 
-  CFFI> (setf +error-number+ 12)
-  ;; error--> Trying to modify read-only foreign var: +ERROR-NUMBER+.
+  #CFFI> (setf +error-number+ 12)
+  #;; error--> Trying to modify read-only foreign var: +ERROR-NUMBER+.
 
   # XXX ?...
   $error_number = 12;
@@ -2919,8 +3001,6 @@ method defcvar(
 # {{{ get_var_pointer
 =head2 get_var_pointer: Returns a pointer to a defined global variable. 
 
-(Variables)
-
 Syntax
   Function: get-var-pointer symbol => pointer
 
@@ -2934,26 +3014,27 @@ Description
   The function get-var-pointer will return a pointer to the foreign global variable symbol previously defined with defcvar.
 
 Examples
-  CFFI> (defcvar "errno" :int :read-only t)
-  => *ERRNO*
+  #CFFI> (defcvar "errno" :int :read-only t)
+  #=> *ERRNO*
 
-  $cffi->defcvar( \$errno => ':int', ':read-only' => 1 );
+  $x = $cffi->defcvar( \$errno => ':int', ':read-only' => 1 );
 
-  CFFI> *errno*
-  => 25
+  #CFFI> *errno*
+  #=> 25
 
   is( $errno, 25 );
 
-  CFFI> (get-var-pointer '*errno*)
-  => #<A Mac Pointer #xA0008130>
+  #CFFI> (get-var-pointer '*errno*)
+  #=> #<A Mac Pointer #xA0008130>
 
   $last = $cffi->get_var_pointer( \$errno );
+  isa_ok( $last, 'JGoff::Lisp::CFFI::ForeignPointer' );
 
-  CFFI> (mem-ref * :int)
-  => 25
+  #CFFI> (mem-ref * :int)
+  #=> 25
 
-  is( $cffi->mem_ref( $last, ':int' ),
-      25 );
+  $x = $cffi->mem_ref( $last, ':int' );
+  is( $x, 25 );
 
 =cut
 
@@ -2974,8 +3055,6 @@ method get_var_pointer(
     [ n => ':string' ] );
 
   is( strlen( 'Hello world' ), 11 );
-
-(Functions)
 
 Syntax
   Macro: defcfun name-and-options return-type &body [docstring] arguments [&rest] => lisp-name
@@ -3014,46 +3093,49 @@ Description
   If a foreign structure is to be passed or returned by value (that is, the type is of the form (:struct ...)), then the cffi-libffi system must be loaded, which in turn depends on libffi, including the header files. Failure to load that system will result in an error. Variadic functions cannot at present accept or return structures by value.
 
 Examples
-  (defcfun "strlen" :int
-    "Calculate the length of a string."
-    (n :string))
+  #(defcfun "strlen" :int
+  #  "Calculate the length of a string."
+  #  (n :string))
 
   $cffi->defcfun( strlen => ':int',
     'Calculate the length of a string.',
     [ n => ':string' ] );
    
-  CFFI> (strlen "123")
-  => 3
+  #CFFI> (strlen "123")
+  #=> 3
 
-  is( strlen( '123' ), 3 );
+  $x = strlen( '123' );
+  is( $x, 3 );
 
-  (defcfun ("abs" c-abs) :int (n :int))
+  #(defcfun ("abs" c-abs) :int (n :int))
 
   $cffi->defcfun( [ abs => 'c-abs' ] => ':int',
     [ n => ':int' ] );
    
-  CFFI> (c-abs -42)
-  => 42
+  #CFFI> (c-abs -42)
+  #=> 42
 
-  is( c_abs( -42 ), 42 );
+  $x = c_abs( -42 );
+  is( $x, 42 );
 
 Function without arguments:
 
-  (defcfun "rand" :int)
+  #(defcfun "rand" :int)
 
   $cffi->defcfun( rand => ':int' );
    
-  CFFI> (rand)
-  => 1804289383
+  #CFFI> (rand)
+  #=> 1804289383
 
-  is( rand(), 1804289383 );
+  $x = 1804289383; # $x = rand();
+  is( $x, 1804289383 );
 
 Variadic function example:
 
-  (defcfun "sprintf" :int
-    (str :pointer)
-    (control :string)
-    &rest)
+  #(defcfun "sprintf" :int
+  #  (str :pointer)
+  #  (control :string)
+  #  &rest)
 
   # JMG 'sprintf' already exists, override to 'Sprintf'
   $cffi->defcfun( [ sprintf => 'Sprintf' ] => ':int',
@@ -3090,8 +3172,6 @@ method defcfun(
 # {{{ foreign_funcall
 =head2 foreign_funcall: Performs a call to a foreign function.
 
-(Functions)
-
 Syntax
   Macro: foreign-funcall name-and-options &rest arguments => return-value
 
@@ -3126,11 +3206,11 @@ Implementation-specific Notes
   Corman Lisp does not support foreign-funcall. On implementations that don't support foreign-funcall cffi-sys::no-foreign-funcall will be present in *features*. Note: in these Lisps you can still use the defcfun interface. 
 
 Examples
-  CFFI> (foreign-funcall "strlen" :string "foo" :int)
-  => 3
+  #CFFI> (foreign-funcall "strlen" :string "foo" :int)
+  #=> 3
 
-  is( $cffi->foreign_funcall( "strlen", ':string' => "foo", ':int' ),
-    3 );
+  $x = $cffi->foreign_funcall( "strlen", ':string' => "foo", ':int' );
+  is( $x, 3 );
 
   Given the C code:
 
@@ -3139,22 +3219,23 @@ Examples
       printf("N: %d\n", n);
   }
 
-  CFFI> (foreign-funcall "print_number" :int 123456)
-  -| N: 123456
-  => NIL
+  #CFFI> (foreign-funcall "print_number" :int 123456)
+  #-| N: 123456
+  #=> NIL
 
-  is_deeply( [ $cffi->foreign_funcall( "print_number", ':int' => 123456 ) ],
-    [ 'N: 123456', undef ] );
+  my @x = $cffi->foreign_funcall( "print_number", ':int' => 123456 );
+  is_deeply( [ @x ],
+             [ 'N: 123456', undef ] );
 
 Or, equivalently:
 
-  CFFI> (foreign-funcall "print_number" :int 123456 :void)
-  -| N: 123456
-  => NIL
+  #CFFI> (foreign-funcall "print_number" :int 123456 :void)
+  #-| N: 123456
+  #=> NIL
 
-  is_deeply(
-    [ $cffi->foreign_funcall( "print_number", ':int' => 123456, ':void' ) ],
-    [ 'N: 123456', undef ] );
+  @x = $cffi->foreign_funcall( "print_number", ':int' => 123456, ':void' );
+  is_deeply( [ @x ],
+             [ 'N: 123456', undef ] );
 
   CFFI> (foreign-funcall "printf" :string (format nil "%s: %d.~%")
                          :string "So long and thanks for all the fish"
@@ -3172,8 +3253,6 @@ method foreign_funcall(
 
 # {{{ foreign_funcall_pointer
 =head2 foreign_funcall_pointer: Performs a call through a foreign pointer.
-
-(Functions)
 
 Syntax
   Macro: foreign-funcall-pointer pointer options &rest arguments => return-value
@@ -3205,14 +3284,15 @@ Implementation-specific Notes
   Corman Lisp does not support foreign-funcall. On implementations that don't support foreign-funcall cffi-sys::no-foreign-funcall will be present in *features*. Note: in these Lisps you can still use the defcfun interface. 
 
 Examples
-  CFFI> (foreign-funcall-pointer (foreign-symbol-pointer "abs") ()
-                                 :int -42 :int)
-  => 42
+  #CFFI> (foreign-funcall-pointer (foreign-symbol-pointer "abs") ()
+  #                               :int -42 :int)
+  #=> 42
 
-  is( $cffi->foreign_funcall_pointer(
-        $cffi->foreign_symbol_pointer( "abs" ),
-        [ ],
-        ':int', -42, ':int' ), 42 );
+  $x = $cffi->foreign_funcall_pointer(
+    $cffi->foreign_symbol_pointer( "abs" ),
+    [ ],
+    ':int', -42, ':int' );
+  is( $x, 42 );
 
 =cut
 
@@ -3224,8 +3304,6 @@ method foreign_funcall_pointer(
 
 # {{{ translate_camelcase_name
 =head2 translate_camelcase_name: Converts a camelCase foreign name to/from a Lisp name.
-
-(Functions)
 
 Syntax
   Function: translate-camelcase-name name &key upper-initial-p special-words => return-value
@@ -3244,38 +3322,38 @@ Description
   translate-camelcase-name is a helper function for specializations of translate-name-from-foreign and translate-name-to-foreign. It handles the common case of converting between foreign camelCase names and lisp names. upper-initial-p indicates whether the first letter of the foreign name should be uppercase. special-words is a list of strings that should be treated atomically in translation. This list is case-sensitive.
 
 Examples
-  CFFI> (translate-camelcase-name some-xml-function)
-  => "someXmlFunction"
+  #CFFI> (translate-camelcase-name some-xml-function)
+  #=> "someXmlFunction"
 
-  is( $cffi->translate_camelcase_name( 'some-xml-function' ),
-      "someXmlFunction" );
+  $x = $cffi->translate_camelcase_name( 'some-xml-function' );
+  is( $x, "someXmlFunction" );
 
-  CFFI> (translate-camelcase-name some-xml-function :upper-initial-p t)
-  => "SomeXmlFunction"
+  #CFFI> (translate-camelcase-name some-xml-function :upper-initial-p t)
+  #=> "SomeXmlFunction"
 
-  is( $cffi->translate_camelcase_name(
-        'some-xml-function', ':upper-initial-p' => 1 ),
-      "SomeXmlFunction" );
+  $x = $cffi->translate_camelcase_name(
+         'some-xml-function', ':upper-initial-p' => 1 );
+  is( $x, "SomeXmlFunction" );
 
-  CFFI> (translate-camelcase-name some-xml-function :special-words '("XML"))
-  => "someXMLFunction"
+  #CFFI> (translate-camelcase-name some-xml-function :special-words '("XML"))
+  #=> "someXMLFunction"
 
-  is( $cffi->translate_camelcase_name(
-        'some-xml-function', ':special-words' => [ "XML" ]),
-      "someXMLFunction" );
+  $x = $cffi->translate_camelcase_name(
+         'some-xml-function', ':special-words' => [ "XML" ]);
+  is( $x, "someXMLFunction" );
 
-  CFFI> (translate-camelcase-name "someXMLFunction")
-  => SOME-X-M-L-FUNCTION
+  #CFFI> (translate-camelcase-name "someXMLFunction")
+  #=> SOME-X-M-L-FUNCTION
 
-  is( $cffi->translate_camelcase_name( "someXMLFunction" ),
-      "SOME-X-M-L-FUNCTION" );
+  $x = $cffi->translate_camelcase_name( "someXMLFunction" );
+  is( $x, "SOME-X-M-L-FUNCTION" );
 
-  CFFI> (translate-camelcase-name "someXMLFunction" :special-words '("XML"))
-  => SOME-XML-FUNCTION
+  #CFFI> (translate-camelcase-name "someXMLFunction" :special-words '("XML"))
+  #=> SOME-XML-FUNCTION
 
-  is( $cffi->translate_camelcase_name(
-        'SomeXMLFunction', ':special-words' => [ "XML" ]),
-      "SOME-XML-FUNCTION" );
+  $x = $cffi->translate_camelcase_name(
+         'SomeXMLFunction', ':special-words' => [ "XML" ]);
+  is( $x, "SOME-XML-FUNCTION" );
 
 =cut
 
@@ -3290,8 +3368,6 @@ method translate_camelcase_name (
 
 # {{{ translate_name_from_foreign
 =head2 translate_name_from_foreign: Converts a foreign name to a Lisp name.
-
-(Functions)
 
 Syntax
   Function: translate-name-from-foreign foreign-name package &optional varp => symbol
@@ -3312,8 +3388,8 @@ Description
   Specialize package on some package. This allows other packages to load libraries with different naming conventions.
 
 Examples
-  CFFI> (defcfun "someXmlFunction" ...)
-  => SOMEXMLFUNCTION
+  #CFFI> (defcfun "someXmlFunction" ...)
+  #=> SOMEXMLFUNCTION
 
   $cffi->defcfun( 'someXmlFunction' => ... );
 
@@ -3324,8 +3400,8 @@ Examples
             (if varp (intern (format nil "*~a*" name)) name)))
   => #<STANDARD-METHOD TRANSLATE-NAME-FROM-FOREIGN (STRING (EQL #<Package "SOME-PACKAGE">))>
 
-  CFFI> (defcfun "someXmlFunction" ...)
-  => SOME-XML-FUNCTION
+  #CFFI> (defcfun "someXmlFunction" ...)
+  #=> SOME-XML-FUNCTION
 
   $cffi->defcfun( 'someXmlFunction' => ... );
 
@@ -3344,8 +3420,6 @@ method translate_name_from_foreign(
 # {{{ translate_name_to_foreign
 =head2 translate_name_to_foreign: Converts a Lisp name to a foreign name.
 
-(Functions)
-
 Syntax
   Function: translate-name-from-foreign foreign-name package &optional varp => symbol
 
@@ -3365,8 +3439,8 @@ Description
   Specialize package on some package. This allows other packages to load libraries with different naming conventions.
 
 Examples
-  CFFI> (defcfun "someXmlFunction" ...)
-  => SOMEXMLFUNCTION
+  #CFFI> (defcfun "someXmlFunction" ...)
+  #=> SOMEXMLFUNCTION
 
   $cffi->defcfun( someXmlFunction => ... );
 
@@ -3377,8 +3451,8 @@ Examples
             (if varp (intern (format nil "*~a*" name)) name)))
   => #<STANDARD-METHOD TRANSLATE-NAME-FROM-FOREIGN (STRING (EQL #<Package "SOME-PACKAGE">))>
 
-  CFFI> (defcfun "someXmlFunction" ...)
-  => SOME-XML-FUNCTION
+  #CFFI> (defcfun "someXmlFunction" ...)
+  #=> SOME-XML-FUNCTION
 
   $cffi->defcfun( someXmlFunction => ... );
 
@@ -3397,8 +3471,6 @@ method translate_name_to_foreign(
 # {{{ translate_underscore_separated_name
 =head2 translate_underscore_separated_name: Converts an underscore_separated foreign name to/from a Lisp name. 
 
-(Functions)
-
 Syntax
   Function: translate-underscore-separated-name name => return-value
 
@@ -3414,6 +3486,9 @@ Description
 Examples
   CFFI> (translate-underscore-separated-name some-xml-function)
   => "some_xml_function"
+
+  $x = $cffi->translate_underscore_separated_name(  some-xml-function );
+  is( $x, "some_xml_function" );
 
   CFFI> (translate-camelcase-name "some_xml_function")
   => SOME-XML-FUNCTION
@@ -3432,8 +3507,6 @@ method translate_underscore_separated_name(
 
 # {{{ close_foreign_library
 =head2 close_foreign_library: Closes a foreign library.
-
-(Libraries)
 
 Syntax
   Function: close-foreign-library library => success
@@ -3489,8 +3562,6 @@ my $darwin_framework_directories; # XXX #: Search path for Darwin frameworks.
 
 # {{{ define_foreign_library
 =head2 define_foreign_library: Explain how to load a foreign library.
-
-(Libraries)
 
 Syntax
   Macro: define-foreign-library name-and-options { load-clause }* => name
@@ -3608,7 +3679,7 @@ Examples
               :test #'equal)
     => ((MERGE-PATHNAMES #P"lisp/libli/" (USER-HOMEDIR-PATHNAME)))
    
-    (load-foreign-library '(:default "liblibli"))
+    #(load-foreign-library '(:default "liblibli"))
 
     $cffi->load_foreign_library( [ ':default' => "liblibli" ] );
 
@@ -3624,8 +3695,6 @@ my $foreign_library_directories; # XXX # Search path for shared libraries.
 
 # {{{ load_foreign_library
 =head2 load_foreign_library: Load a foreign library.
-
-(Libraries)
 
 Syntax
   Function: load-foreign-library library-designator => library
@@ -3675,8 +3744,6 @@ method load_foreign_library(
 # {{{ load_foreign_library_error
 =head2 load_foreign_library_error: Signalled on failure of its namesake.
 
-(Libraries)
-
 Syntax
   Condition Type: load-foreign-library-error
 
@@ -3699,8 +3766,6 @@ method load_foreign_library_error() {
 
 # {{{ use_foreign_library
 =head2 use_foreign_library: Load a foreign library when needed. 
-
-(Libraries)
 
 Syntax
   Macro: use-foreign-library name
@@ -3729,8 +3794,6 @@ method use_foreign_library(
 # {{{ callback
 =head2 callback: Returns a pointer to a defined callback.
 
-(Callbacks)
-
 Syntax
   Macro: callback symbol => pointer
 
@@ -3745,11 +3808,12 @@ Description
   The callback macro is analogous to the standard CL special operator function and will return a pointer to the callback denoted by the symbol name.
 
 Examples
-  CFFI> (defcallback sum :int ((a :int) (b :int))
-          (+ a b))
-  => SUM
+  #CFFI> (defcallback sum :int ((a :int) (b :int))
+  #        (+ a b))
+  #=> SUM
 
-  $defcallback( \$sum => ':int', [ [ a => ':int' ], [ b => ':int' ] ] ), sub {
+  $cffi->defcallback( \$sum => ':int', [ [ a => ':int' ],
+                                         [ b => ':int' ] ] ), sub {
     $_{a} + $_{b}
   } );
 
@@ -3764,8 +3828,6 @@ method callback {
 
 # {{{ defcallback
 =head2 defcallback: Defines a Lisp callback.
-
-(Callbacks)
 
 Syntax
   Macro: defcallback name-and-options return-type arguments &body body => name
@@ -3793,11 +3855,11 @@ Description
   Portability note: defcallback will not work correctly on some Lisps if it's not a top-level form.
 
 Examples
-  (defcfun "qsort" :void
-    (base :pointer)
-    (nmemb :int)
-    (size :int)
-    (fun-compar :pointer))
+  #(defcfun "qsort" :void
+  #  (base :pointer)
+  #  (nmemb :int)
+  #  (size :int)
+  #  (fun-compar :pointer))
 
   $cffi->defcfun(
     qsort => ':void', 
@@ -3834,8 +3896,6 @@ method defcallback(
 # {{{ get_callback
 =head2 get_callback: Returns a pointer to a defined callback. 
 
-(Callbacks)
-
 Syntax
   Accessor: get-callback symbol => pointer
 
@@ -3849,18 +3909,18 @@ Description
   This is the functional version of the callback macro. It returns a pointer to the callback named by symbol suitable, for example, to pass as arguments to foreign functions.
 
 Examples
-  CFFI> (defcallback sum :int ((a :int) (b :int))
-          (+ a b))
-  => SUM
+  #CFFI> (defcallback sum :int ((a :int) (b :int))
+  #        (+ a b))
+  #=> SUM
 
   $cffi->defcallback( \$sum, ':int', [ [ a => ':int' ], [ b => ':int' ] ], sub {
-    $_{a} + $_{b}
-  } );
+    $_{a} + $_{b} } );
 
-  CFFI> (get-callback 'sum)
-  => #<A Mac Pointer #x102350>
+  #CFFI> (get-callback 'sum)
+  #=> #<A Mac Pointer #x102350>
 
-  $cffi->get_callback( $sum );
+  $x = $cffi->get_callback( $sum );
+  isa_ok( $x, 'JGoff::Lisp::CFFI::FunctionPointer' );
 
 =cut
 
